@@ -3,59 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kişisel Kütüphanem</title>
+    <title>Kişisel Kütüphanem - Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f9; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
-        #adminPanel { display: none; background: #f8f9fa; padding: 20px; border-radius: 6px; margin-top: 20px; border: 1px solid #e9ecef; }
-        .bulk-btn { background: #28a745; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; color: #1c1e21; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+        h1 { color: #1877f2; text-align: center; font-size: 2.5em; margin-bottom: 30px; }
+        .card { background: #fff; border: 1px solid #dddfe2; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #dddfe2; border-radius: 6px; font-size: 16px; box-sizing: border-box; }
+        button { background: #1877f2; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; width: 100%; transition: background 0.3s; }
+        button:hover { background: #166fe5; }
+        button.logout { background: #f02849; margin-bottom: 20px; }
+        button.bulk { background: #42b72a; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border-bottom: 1px solid #dddfe2; padding: 15px; text-align: left; }
+        th { background-color: #f8f9fa; color: #606770; text-transform: uppercase; font-size: 12px; }
+        tr:hover { background-color: #f5f6f7; }
+        #adminPanel { display: none; margin-top: 40px; border-top: 2px solid #eee; padding-top: 20px; }
+        .search-container { position: sticky; top: 0; background: white; z-index: 100; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .status-msg { padding: 10px; color: #666; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📚 Kütüphanem</h1>
+    <h1>📚 Online Kütüphanem</h1>
     
-    <div id="authSection">
-        <input type="email" id="email" placeholder="E-posta">
-        <input type="password" id="password" placeholder="Şifre">
-        <button onclick="login()">Giriş Yap</button>
+    <div id="authSection" class="card">
+        <h3>Giriş Yap</h3>
+        <input type="email" id="email" placeholder="E-posta Adresiniz">
+        <input type="password" id="password" placeholder="Şifreniz">
+        <button onclick="login()">Sisteme Gir</button>
     </div>
 
     <div id="librarySection" style="display:none;">
-        <button onclick="logout()" style="background:#dc3545;">Çıkış Yap</button>
-        <hr>
-        <input type="text" id="searchInput" placeholder="Kitap, Yazar, Yayın Evi veya Okuyan ara..." onkeyup="searchBooks()">
+        <button class="logout" onclick="logout()">Güvenli Çıkış</button>
         
-        <table id="bookTable">
-            <thead><tr><th>Kitap Adı</th><th>Yazar</th><th>Yayın Evi</th><th>Okuyan</th></tr></thead>
-            <tbody id="bookList"></tbody>
-        </table>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="ISBN, Kitap, Yazar veya Okuyan ara..." onkeyup="searchBooks()">
+        </div>
+        
+        <div style="overflow-x:auto;">
+            <table id="bookTable">
+                <thead>
+                    <tr>
+                        <th>ISBN</th>
+                        <th>Kitap Adı</th>
+                        <th>Yazar</th>
+                        <th>Yayın Evi</th>
+                        <th>Okuyanlar</th>
+                    </tr>
+                </thead>
+                <tbody id="bookList"></tbody>
+            </table>
+        </div>
 
-        <div id="adminPanel">
-            <h3>Kitap Ekle (Admin)</h3>
-            <input type="text" id="newTitle" placeholder="Kitap Adı">
-            <input type="text" id="newAuthor" placeholder="Yazar">
-            <input type="text" id="newPub" placeholder="Yayın Evi">
-            <input type="text" id="newReader" placeholder="Okuyanlar (örn: Mehmet/Mustafa)">
-            <button onclick="addBook()">Kitabı Ekle</button>
+        <div id="adminPanel" class="card">
+            <h3 style="color: #d32f2f;">Yönetici Paneli</h3>
             
-            <hr>
-            <h3>Toplu Yükleme (Excel'den Kopyala-Yapıştır)</h3>
-            <p><small>Excel'de "Kitap, Yazar, Yayın Evi, Okuyan" sırasıyla seçip buraya yapıştırın:</small></p>
-            <textarea id="bulkData" rows="5" placeholder="Excel satırlarını buraya yapıştırın..."></textarea>
-            <button class="bulk-btn" onclick="uploadBulk()">Toplu Ekle</button>
+            <div style="background: #fdf6f6; padding: 15px; border-radius: 8px;">
+                <h4>Tekli Kitap Ekle</h4>
+                <input type="text" id="newIsbn" placeholder="ISBN Numarası">
+                <input type="text" id="newTitle" placeholder="Kitap Adı">
+                <input type="text" id="newAuthor" placeholder="Yazar">
+                <input type="text" id="newPub" placeholder="Yayın Evi">
+                <input type="text" id="newReader" placeholder="Okuyanlar (Örn: Mehmet/Mustafa)">
+                <button onclick="addBook()">Kaydet</button>
+            </div>
+
+            <div style="margin-top: 20px; background: #f6fdf6; padding: 15px; border-radius: 8px;">
+                <h4>Excel'den Toplu Yükleme</h4>
+                <p><small>Dosya formatı: İlk satır başlık olmalı. Sütunlar sırasıyla: ISBN, Kitap Adı, Yazar, Yayın Evi, Okuyanlar</small></p>
+                <input type="file" id="excelFile" accept=".xlsx, .xls, .csv">
+                <button class="bulk" onclick="uploadExcel()">Dosyayı İşle ve Yükle</button>
+                <div id="uploadStatus" class="status-msg"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -72,55 +101,89 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
+    // Giriş
     window.login = () => {
         const email = document.getElementById('email').value;
         const pass = document.getElementById('password').value;
-        signInWithEmailAndPassword(auth, email, pass).catch(e => alert("Hata: " + e.message));
+        signInWithEmailAndPassword(auth, email, pass).catch(e => alert("Giriş Hatası: " + e.message));
     };
 
     window.logout = () => signOut(auth);
 
+    // Tekli Ekleme
     window.addBook = async () => {
-        await addDoc(collection(db, "books"), {
+        const data = {
+            isbn: document.getElementById('newIsbn').value,
             title: document.getElementById('newTitle').value,
             author: document.getElementById('newAuthor').value,
             publisher: document.getElementById('newPub').value,
-            reader: document.getElementById('newReader').value
-        });
-        alert("Kitap eklendi!");
-        loadBooks();
+            reader: document.getElementById('newReader').value,
+            timestamp: new Date()
+        };
+        try {
+            await addDoc(collection(db, "books"), data);
+            alert("Kitap başarıyla eklendi.");
+            loadBooks();
+        } catch(e) { alert("Yetki Hatası! Sadece Admin ekleyebilir."); }
     };
 
-    window.uploadBulk = async () => {
-        const data = document.getElementById('bulkData').value;
-        const rows = data.split('\n');
-        if(!confirm(rows.length + " adet kitap eklemek istediğine emin misin?")) return;
+    // Excel Yükleme
+    window.uploadExcel = () => {
+        const file = document.getElementById('excelFile').files[0];
+        if (!file) return alert("Lütfen bir dosya seçin.");
 
-        for(let row of rows) {
-            const cols = row.split('\t');
-            if(cols.length >= 3) {
-                await addDoc(collection(db, "books"), {
-                    title: cols[0],
-                    author: cols[1],
-                    publisher: cols[2],
-                    reader: cols[3] || ""
-                });
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            // İlk satırı (başlık) atlayıp döngüye giriyoruz
+            const status = document.getElementById('uploadStatus');
+            let successCount = 0;
+
+            for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+                if (row.length > 0) {
+                    await addDoc(collection(db, "books"), {
+                        isbn: row[0] ? String(row[0]) : "",
+                        title: row[1] ? String(row[1]) : "",
+                        author: row[2] ? String(row[2]) : "",
+                        publisher: row[3] ? String(row[3]) : "",
+                        reader: row[4] ? String(row[4]) : "",
+                        timestamp: new Date()
+                    });
+                    successCount++;
+                    status.innerText = successCount + " kitap yüklendi...";
+                }
             }
-        }
-        alert("Toplu işlem tamamlandı!");
-        loadBooks();
+            alert("İşlem tamam! " + successCount + " kitap eklendi.");
+            loadBooks();
+        };
+        reader.readAsArrayBuffer(file);
     };
 
+    // Verileri Yükleme (Kitap Adına Göre Sıralı)
     async function loadBooks() {
-        const querySnapshot = await getDocs(collection(db, "books"));
+        const q = query(collection(db, "books"), orderBy("title"));
+        const querySnapshot = await getDocs(q);
         const list = document.getElementById('bookList');
         list.innerHTML = "";
         querySnapshot.forEach(doc => {
             const b = doc.data();
-            list.innerHTML += `<tr><td>${b.title}</td><td>${b.author}</td><td>${b.publisher}</td><td>${b.reader}</td></tr>`;
+            list.innerHTML += `<tr>
+                <td><b>${b.isbn || '-'}</b></td>
+                <td>${b.title}</td>
+                <td>${b.author}</td>
+                <td>${b.publisher}</td>
+                <td><small>${b.reader || '-'}</small></td>
+            </tr>`;
         });
     }
 
+    // Arama Fonksiyonu
     window.searchBooks = () => {
         const filter = document.getElementById('searchInput').value.toLowerCase();
         const rows = document.getElementById('bookList').getElementsByTagName('tr');
@@ -129,11 +192,12 @@
         }
     };
 
+    // Auth Kontrolü
     onAuthStateChanged(auth, (user) => {
         if (user) {
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('librarySection').style.display = 'block';
-            // BURAYI KENDİ E-POSTAN İLE DEĞİŞTİR
+            // DİKKAT: Burayı kendi e-postan ile değiştir!
             if(user.email === "admin@unallar.com.tr") { 
                 document.getElementById('adminPanel').style.display = 'block'; 
             }

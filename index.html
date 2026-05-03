@@ -6,10 +6,11 @@
     <title>Kişisel Kütüphanem</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        .search-box { display: flex; gap: 10px; align-items: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #f8f9fa; }
@@ -30,7 +31,11 @@
     <div id="librarySection" style="display:none;">
         <button onclick="logout()" style="background:#6c757d;">Çıkış Yap</button>
         <hr>
-        <input type="text" id="searchInput" placeholder="ISBN, Kitap, Yazar veya Okuyan ara..." onkeyup="searchBooks()">
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="ISBN, Kitap, Yazar veya Okuyan ara...">
+            <button onclick="searchBooks()" style="background:#28a745;">Ara</button>
+        </div>
         
         <table id="bookTable">
             <thead><tr><th>ISBN</th><th>Kitap Adı</th><th>Yazar</th><th>Yayın Evi</th><th>Okuyan</th></tr></thead>
@@ -38,7 +43,7 @@
         </table>
 
         <div id="adminPanel">
-            <h3>Yönetici Paneli (Kitap Ekleme)</h3>
+            <h3>Yönetici Paneli</h3>
             <input type="text" id="newIsbn" placeholder="ISBN">
             <input type="text" id="newTitle" placeholder="Kitap Adı">
             <input type="text" id="newAuthor" placeholder="Yazar">
@@ -75,7 +80,6 @@
     window.login = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
     window.logout = () => signOut(auth);
 
-    // Tekli Ekle
     window.addBook = async () => {
         await addDoc(collection(db, "books"), {
             isbn: document.getElementById('newIsbn').value,
@@ -88,7 +92,6 @@
         loadBooks();
     };
 
-    // Excel Yükle
     window.uploadExcel = () => {
         const file = document.getElementById('excelFile').files[0];
         if(!file) return alert("Dosya seçiniz!");
@@ -119,6 +122,7 @@
         });
     }
 
+    // Arama fonksiyonu artık sadece butona basınca çalışıyor
     window.searchBooks = () => {
         const filter = document.getElementById('searchInput').value.toLowerCase();
         const rows = document.getElementById('bookList').querySelectorAll('tr');
@@ -131,7 +135,8 @@
         if (user) {
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('librarySection').style.display = 'block';
-            if(user.email === "admin@unallar.com.tr") { // BURAYI KENDİ MAİLİNLE DEĞİŞTİR
+            // BURAYI KENDİ MAİLİNLE DEĞİŞTİR
+            if(user.email === "admin@unallar.com.tr") { 
                 document.getElementById('adminPanel').style.display = 'block'; 
             }
             loadBooks();

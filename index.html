@@ -10,7 +10,7 @@
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        .controls { display: flex; gap: 10px; margin-top: 10px; }
+        .search-box { display: flex; gap: 10px; align-items: center; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #f8f9fa; }
@@ -32,8 +32,8 @@
         <button onclick="logout()" style="background:#6c757d;">Çıkış Yap</button>
         <hr>
         
-        <input type="text" id="searchInput" placeholder="Aramak istediğin kelimeyi yaz...">
-        <div class="controls">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="ISBN, Kitap, Yazar veya Okuyan ara..." onkeydown="if(event.key==='Enter') searchBooks()">
             <button onclick="searchBooks()" style="background:#28a745;">Ara</button>
             <button onclick="loadBooks()" style="background:#007bff;">Tümünü Listele</button>
         </div>
@@ -54,7 +54,7 @@
             <input type="text" id="newReader" placeholder="Okuyanlar">
             <button onclick="addBook()">Tekil Kitap Ekle</button>
             <hr>
-            <h4>Excel Yükle</h4>
+            <h4>Excel ile Toplu Yükleme</h4>
             <input type="file" id="excelFile" accept=".xlsx, .xls">
             <button onclick="uploadExcel()" style="background:#28a745;">Yükle</button>
         </div>
@@ -83,7 +83,7 @@
     window.login = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
     window.logout = () => signOut(auth);
 
-    // Tümünü listele
+    // Tümünü yükle
     window.loadBooks = async () => {
         document.getElementById('status').innerText = "Yükleniyor...";
         const querySnapshot = await getDocs(collection(db, "books"));
@@ -96,14 +96,16 @@
         document.getElementById('status').innerText = "";
     };
 
-    // Sadece arama yapınca çalışır
-    window.searchBooks = () => {
-        const filter = document.getElementById('searchInput').value.toLowerCase();
-        if(!filter) return alert("Lütfen bir şey yazın!");
+    // Arama fonksiyonu: Eğer tablo boşsa önce yükle, sonra ara
+    window.searchBooks = async () => {
+        const list = document.getElementById('bookList');
+        // Eğer liste boşsa önce verileri çek
+        if(list.innerHTML === "") {
+            await window.loadBooks();
+        }
         
-        // Önce hepsini yükle, sonra filtrele (Küçük veriler için pratik)
-        // Eğer çok yavaşlarsa Firestore "where" sorgularına geçeceğiz.
-        const rows = document.getElementById('bookList').querySelectorAll('tr');
+        const filter = document.getElementById('searchInput').value.toLowerCase();
+        const rows = list.querySelectorAll('tr');
         rows.forEach(row => {
             row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
         });
@@ -143,8 +145,7 @@
         if (user) {
             document.getElementById('authSection').style.display = 'none';
             document.getElementById('librarySection').style.display = 'block';
-            // BURAYI KENDİ MAİLİNLE DEĞİŞTİR
-            if(user.email === "admin@unallar.com.tr") { 
+            if(user.email === "admin@unallar.com.tr") { // Kendi mailinle değiştir
                 document.getElementById('adminPanel').style.display = 'block'; 
             }
         } else {

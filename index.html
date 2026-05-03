@@ -46,17 +46,10 @@
         </table>
 
         <div id="adminPanel">
-            <h3>Yönetici Paneli</h3>
-            <input type="text" id="newIsbn" placeholder="ISBN">
-            <input type="text" id="newTitle" placeholder="Kitap Adı">
-            <input type="text" id="newAuthor" placeholder="Yazar">
-            <input type="text" id="newPub" placeholder="Yayın Evi">
-            <input type="text" id="newReader" placeholder="Okuyanlar">
-            <button onclick="addBook()">Tekil Kitap Ekle</button>
-            <hr>
-            <h4>Excel ile Toplu Yükleme</h4>
+            <h3>Yönetici Paneli (Toplu Yükleme)</h3>
+            <p>Excel dosyanızı seçin ve yükleyin.</p>
             <input type="file" id="excelFile" accept=".xlsx, .xls">
-            <button onclick="uploadExcel()" style="background:#28a745;">Yükle</button>
+            <button onclick="uploadExcel()" style="background:#28a745;">Excel'i Yükle</button>
         </div>
     </div>
 </div>
@@ -108,18 +101,6 @@
             else { row.style.display = "none"; }
         });
         document.getElementById('status').innerText = count + " sonuç bulundu.";
-    };
-
-    window.addBook = async () => {
-        await addDoc(collection(db, "books"), {
-            isbn: document.getElementById('newIsbn').value,
-            title: document.getElementById('newTitle').value,
-            author: document.getElementById('newAuthor').value,
-            publisher: document.getElementById('newPub').value,
-            reader: document.getElementById('newReader').value
-        });
-        alert("Kitap eklendi!");
-        loadBooks();
     };
 
     window.uploadExcel = () => {

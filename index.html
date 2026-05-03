@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kişisel Kütüphanem</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
+        #adminPanel { display: none; background: #fff3cd; padding: 15px; border-radius: 6px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📚 Kütüphanem</h1>
+    
+    <div id="authSection">
+        <input type="email" id="email" placeholder="E-posta">
+        <input type="password" id="password" placeholder="Şifre">
+        <button onclick="login()">Giriş Yap</button>
+    </div>
+
+    <div id="librarySection" style="display:none;">
+        <button onclick="logout()">Çıkış Yap</button>
+        <input type="text" id="searchInput" placeholder="Kitap, Yazar veya Yayın Evi ara..." onkeyup="searchBooks()">
+        
+        <table id="bookTable">
+            <thead><tr><th>Kitap Adı</th><th>Yazar</th><th>Yayın Evi</th></tr></thead>
+            <tbody id="bookList"></tbody>
+        </table>
+
+        <div id="adminPanel">
+            <h3>Kitap Ekle (Admin)</h3>
+            <input type="text" id="newTitle" placeholder="Kitap Adı">
+            <input type="text" id="newAuthor" placeholder="Yazar">
+            <input type="text" id="newPub" placeholder="Yayın Evi">
+            <button onclick="addBook()">Kitabı Ekle</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
+        authDomain: "onlinekutuphanem.firebaseapp.com",
+        projectId: "onlinekutuphanem",
+        storageBucket: "onlinekutuphanem.firebasestorage.app",
+        messagingSenderId: "772703511419",
+        appId: "1:772703511419:web:322073bf09ef86a32193de",
+        measurementId: "G-NXBFE7JH8Q"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // Giriş Fonksiyonu
+    window.login = () => {
+        const email = document.getElementById('email').value;
+        const pass = document.getElementById('password').value;
+        signInWithEmailAndPassword(auth, email, pass).catch(e => alert("Hata: " + e.message));
+    };
+
+    window.logout = () => signOut(auth);
+
+    // Kitap Ekleme
+    window.addBook = async () => {
+        try {
+            await addDoc(collection(db, "books"), {
+                title: document.getElementById('newTitle').value,
+                author: document.getElementById('newAuthor').value,
+                publisher: document.getElementById('newPub').value
+            });
+            alert("Kitap eklendi!");
+            loadBooks();
+        } catch(e) { alert("Hata! Yetkiniz olmayabilir: " + e.message); }
+    };
+
+    // Verileri Yükleme
+    async function loadBooks() {
+        const querySnapshot = await getDocs(collection(db, "books"));
+        const list = document.getElementById('bookList');
+        list.innerHTML = "";
+        querySnapshot.forEach(doc => {
+            const b = doc.data();
+            list.innerHTML += `<tr><td>${b.title}</td><td>${b.author}</td><td>${b.publisher}</td></tr>`;
+        });
+    }
+
+    // Arama
+    window.searchBooks = () => {
+        const filter = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.getElementById('bookList').getElementsByTagName('tr');
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].style.display = rows[i].innerText.toLowerCase().includes(filter) ? "" : "none";
+        }
+    };
+
+    // Auth Dinleyici
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('librarySection').style.display = 'block';
+            // Senin mailinle admin paneli göster (Mailini buraya yaz!)
+            if(user.email === "admin@unallar.com.tr") { 
+                document.getElementById('adminPanel').style.display = 'block'; 
+            }
+            loadBooks();
+        } else {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('librarySection').style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>

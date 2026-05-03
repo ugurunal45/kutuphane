@@ -79,7 +79,6 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // Görünüm Değiştirici
     window.showView = (viewId) => {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
@@ -88,31 +87,34 @@
     window.login = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
     window.logout = () => signOut(auth);
 
-    // İstatistik (Slash Algılamalı)
+    // İSTATİSTİK: Slash (/) olanları ayırıp hem Mehmet Yavuz'a hem Mustafa Yağız'a yazar
     window.calculateStats = async () => {
         const content = document.getElementById('statsContent');
-        content.innerText = "Hesaplanıyor...";
+        content.innerText = "Veriler hesaplanıyor...";
         const snapshot = await getDocs(collection(db, "books"));
         let pubCount = {}, authCount = {}, readerCount = {};
 
         snapshot.forEach(doc => {
             const b = doc.data();
+            // Yayın evi ve Yazar
             if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
             if(b.author) authCount[b.author] = (authCount[b.author] || 0) + 1;
             
-            // Slash ayrımı:
+            // OKUYANLAR: '/' işaretini bul ve parçala
             if(b.reader) {
-                const names = b.reader.split('/');
+                const names = b.reader.split('/'); // Örneğin: "Mehmet Yavuz / Mustafa Yağız" -> ["Mehmet Yavuz ", " Mustafa Yağız"]
                 names.forEach(name => {
-                    const cleanName = name.trim();
-                    if(cleanName) readerCount[cleanName] = (readerCount[cleanName] || 0) + 1;
+                    const cleanName = name.trim(); // Boşlukları temizle -> "Mehmet Yavuz", "Mustafa Yağız"
+                    if(cleanName) {
+                        readerCount[cleanName] = (readerCount[cleanName] || 0) + 1;
+                    }
                 });
             }
         });
 
         let html = `<h5>Okuyucu Skorları:</h5><ul>`;
-        for(let r in readerCount) html += `<li>${r}: ${readerCount[r]} kitap</li>`;
-        html += `</ul><h5>Yayın Evi:</h5><ul>`;
+        for(let r in readerCount) html += `<li><strong>${r}:</strong> ${readerCount[r]} kitap</li>`;
+        html += `</ul><h5>Yayın Evi Dağılımı:</h5><ul>`;
         for(let p in pubCount) html += `<li>${p}: ${pubCount[p]} adet</li>`;
         content.innerHTML = html;
     };
@@ -150,7 +152,7 @@
                 const r = json[i];
                 if(r[1]) await addDoc(collection(db, "books"), { isbn: String(r[0]||""), title: String(r[1]||""), author: String(r[2]||""), publisher: String(r[3]||""), reader: String(r[4]||"") });
             }
-            alert("Tamamlandı!");
+            alert("Toplu yükleme tamamlandı!");
             loadBooks();
         };
         reader.readAsArrayBuffer(file);

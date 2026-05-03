@@ -6,11 +6,11 @@
     <title>Kişisel Kütüphanem</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        .search-box { display: flex; gap: 10px; align-items: center; }
+        .controls { display: flex; gap: 10px; margin-top: 10px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #f8f9fa; }
@@ -32,10 +32,13 @@
         <button onclick="logout()" style="background:#6c757d;">Çıkış Yap</button>
         <hr>
         
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="ISBN, Kitap, Yazar veya Okuyan ara...">
+        <input type="text" id="searchInput" placeholder="Aramak istediğin kelimeyi yaz...">
+        <div class="controls">
             <button onclick="searchBooks()" style="background:#28a745;">Ara</button>
+            <button onclick="loadBooks()" style="background:#007bff;">Tümünü Listele</button>
         </div>
+        
+        <div id="status" style="margin-top:10px; font-weight:bold;"></div>
         
         <table id="bookTable">
             <thead><tr><th>ISBN</th><th>Kitap Adı</th><th>Yazar</th><th>Yayın Evi</th><th>Okuyan</th></tr></thead>
@@ -51,9 +54,9 @@
             <input type="text" id="newReader" placeholder="Okuyanlar">
             <button onclick="addBook()">Tekil Kitap Ekle</button>
             <hr>
-            <h4>Excel ile Toplu Yükleme</h4>
+            <h4>Excel Yükle</h4>
             <input type="file" id="excelFile" accept=".xlsx, .xls">
-            <button onclick="uploadExcel()" style="background:#28a745;">Excel'i Yükle</button>
+            <button onclick="uploadExcel()" style="background:#28a745;">Yükle</button>
         </div>
     </div>
 </div>
@@ -80,6 +83,32 @@
     window.login = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
     window.logout = () => signOut(auth);
 
+    // Tümünü listele
+    window.loadBooks = async () => {
+        document.getElementById('status').innerText = "Yükleniyor...";
+        const querySnapshot = await getDocs(collection(db, "books"));
+        const list = document.getElementById('bookList');
+        list.innerHTML = "";
+        querySnapshot.forEach(doc => {
+            const b = doc.data();
+            list.innerHTML += `<tr><td>${b.isbn||''}</td><td>${b.title}</td><td>${b.author}</td><td>${b.publisher}</td><td>${b.reader}</td></tr>`;
+        });
+        document.getElementById('status').innerText = "";
+    };
+
+    // Sadece arama yapınca çalışır
+    window.searchBooks = () => {
+        const filter = document.getElementById('searchInput').value.toLowerCase();
+        if(!filter) return alert("Lütfen bir şey yazın!");
+        
+        // Önce hepsini yükle, sonra filtrele (Küçük veriler için pratik)
+        // Eğer çok yavaşlarsa Firestore "where" sorgularına geçeceğiz.
+        const rows = document.getElementById('bookList').querySelectorAll('tr');
+        rows.forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
+        });
+    };
+
     window.addBook = async () => {
         await addDoc(collection(db, "books"), {
             isbn: document.getElementById('newIsbn').value,
@@ -89,7 +118,6 @@
             reader: document.getElementById('newReader').value
         });
         alert("Kitap eklendi!");
-        loadBooks();
     };
 
     window.uploadExcel = () => {
@@ -107,28 +135,8 @@
                 }
             }
             alert("Toplu yükleme tamamlandı!");
-            loadBooks();
         };
         reader.readAsArrayBuffer(file);
-    };
-
-    async function loadBooks() {
-        const querySnapshot = await getDocs(collection(db, "books"));
-        const list = document.getElementById('bookList');
-        list.innerHTML = "";
-        querySnapshot.forEach(doc => {
-            const b = doc.data();
-            list.innerHTML += `<tr><td>${b.isbn}</td><td>${b.title}</td><td>${b.author}</td><td>${b.publisher}</td><td>${b.reader}</td></tr>`;
-        });
-    }
-
-    // Arama fonksiyonu artık sadece butona basınca çalışıyor
-    window.searchBooks = () => {
-        const filter = document.getElementById('searchInput').value.toLowerCase();
-        const rows = document.getElementById('bookList').querySelectorAll('tr');
-        rows.forEach(row => {
-            row.style.display = row.innerText.toLowerCase().includes(filter) ? "" : "none";
-        });
     };
 
     onAuthStateChanged(auth, (user) => {
@@ -139,7 +147,6 @@
             if(user.email === "admin@unallar.com.tr") { 
                 document.getElementById('adminPanel').style.display = 'block'; 
             }
-            loadBooks();
         } else {
             document.getElementById('authSection').style.display = 'block';
             document.getElementById('librarySection').style.display = 'none';

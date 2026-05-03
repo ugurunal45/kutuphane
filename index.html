@@ -8,14 +8,14 @@
     <style>
         body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .view { display: none; }
+        .active { display: block; }
         input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; margin-right: 5px; }
-        .search-box { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+        .nav-btn { background: #6c757d; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #f8f9fa; }
-        #adminPanel, #statsPanel { display: none; background: #fff3cd; padding: 20px; margin-top: 20px; border-radius: 8px; }
-        .stat-card { display: inline-block; width: 30%; padding: 10px; background: #fff; border: 1px solid #ddd; margin: 5px; vertical-align: top; }
+        #adminPanel { display: none; background: #fff3cd; padding: 20px; margin-top: 20px; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -29,35 +29,34 @@
         <button onclick="login()">Giriş Yap</button>
     </div>
 
-    <div id="librarySection" style="display:none;">
-        <button onclick="logout()" style="background:#6c757d;">Çıkış Yap</button>
-        <button onclick="showStats()" style="background:#ffc107; color:black;">İstatistikleri Gör</button>
-        <hr>
-        
-        <div id="statsPanel">
-            <h3>📊 Kütüphane İstatistikleri</h3>
-            <div id="statsContent"></div>
-            <button onclick="document.getElementById('statsPanel').style.display='none'">Kapat</button>
-        </div>
+    <div id="menuSection" style="display:none; margin-bottom:20px;">
+        <button class="nav-btn" onclick="showView('libraryView')">Kütüphane</button>
+        <button class="nav-btn" onclick="showView('statsView')">İstatistik</button>
+        <button onclick="logout()" style="background:#dc3545;">Çıkış</button>
+    </div>
 
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="ISBN, Kitap, Yazar veya Okuyan ara..." onkeydown="if(event.key==='Enter') searchBooks()">
+    <div id="libraryView" class="view">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="searchInput" placeholder="Ara (ISBN, İsim, Yazar...)" onkeydown="if(event.key==='Enter') searchBooks()">
             <button onclick="searchBooks()" style="background:#28a745;">Ara</button>
-            <button onclick="loadBooks()" style="background:#007bff;">Tümünü Listele</button>
+            <button onclick="loadBooks()" style="background:#007bff;">Listele</button>
         </div>
-        
         <div id="status" style="margin-top:10px; font-weight:bold;"></div>
-        
-        <table id="bookTable">
-            <thead><tr><th>ISBN</th><th>Kitap Adı</th><th>Yazar</th><th>Yayın Evi</th><th>Okuyan</th></tr></thead>
+        <table>
+            <thead><tr><th>ISBN</th><th>Kitap</th><th>Yazar</th><th>Yayınevi</th><th>Okuyanlar</th></tr></thead>
             <tbody id="bookList"></tbody>
         </table>
+    </div>
 
-        <div id="adminPanel">
-            <h3>Yönetici Paneli</h3>
-            <input type="file" id="excelFile" accept=".xlsx, .xls">
-            <button onclick="uploadExcel()" style="background:#28a745;">Excel'i Yükle</button>
-        </div>
+    <div id="statsView" class="view">
+        <button onclick="calculateStats()" style="background:#ffc107; color:black;">Verileri Analiz Et</button>
+        <div id="statsContent" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="adminPanel">
+        <h3>Yönetici: Toplu Yükleme</h3>
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <button onclick="uploadExcel()" style="background:#28a745;">Excel'i Yükle</button>
     </div>
 </div>
 
@@ -80,40 +79,50 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
+    // Görünüm Değiştirici
+    window.showView = (viewId) => {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    };
+
     window.login = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
     window.logout = () => signOut(auth);
 
-    // İstatistik Hesaplama
-    window.showStats = async () => {
-        document.getElementById('statsPanel').style.display = 'block';
-        document.getElementById('statsContent').innerText = "Hesaplanıyor...";
-        
-        const querySnapshot = await getDocs(collection(db, "books"));
-        let pubCount = {}, authCount = {}, mehmetYavuz = 0;
+    // İstatistik (Slash Algılamalı)
+    window.calculateStats = async () => {
+        const content = document.getElementById('statsContent');
+        content.innerText = "Hesaplanıyor...";
+        const snapshot = await getDocs(collection(db, "books"));
+        let pubCount = {}, authCount = {}, readerCount = {};
 
-        querySnapshot.forEach(doc => {
+        snapshot.forEach(doc => {
             const b = doc.data();
             if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
             if(b.author) authCount[b.author] = (authCount[b.author] || 0) + 1;
-            if(b.reader && b.reader.includes("Mehmet Yavuz")) mehmetYavuz++;
+            
+            // Slash ayrımı:
+            if(b.reader) {
+                const names = b.reader.split('/');
+                names.forEach(name => {
+                    const cleanName = name.trim();
+                    if(cleanName) readerCount[cleanName] = (readerCount[cleanName] || 0) + 1;
+                });
+            }
         });
 
-        let html = `<h4>Mehmet Yavuz toplam ${mehmetYavuz} kitap okumuş.</h4>`;
-        html += `<h5>Yayın Evi Dağılımı:</h5><ul>`;
+        let html = `<h5>Okuyucu Skorları:</h5><ul>`;
+        for(let r in readerCount) html += `<li>${r}: ${readerCount[r]} kitap</li>`;
+        html += `</ul><h5>Yayın Evi:</h5><ul>`;
         for(let p in pubCount) html += `<li>${p}: ${pubCount[p]} adet</li>`;
-        html += `</ul><h5>Yazar Dağılımı:</h5><ul>`;
-        for(let a in authCount) html += `<li>${a}: ${authCount[a]} adet</li>`;
-        html += `</ul>`;
-        
-        document.getElementById('statsContent').innerHTML = html;
+        content.innerHTML = html;
     };
 
     window.loadBooks = async () => {
         document.getElementById('status').innerText = "Yükleniyor...";
-        const querySnapshot = await getDocs(collection(db, "books"));
+        const snap = await getDocs(collection(db, "books"));
         const list = document.getElementById('bookList');
         list.innerHTML = "";
-        querySnapshot.forEach(doc => {
+        snap.forEach(doc => {
             const b = doc.data();
             list.innerHTML += `<tr><td>${b.isbn||''}</td><td>${b.title}</td><td>${b.author}</td><td>${b.publisher}</td><td>${b.reader}</td></tr>`;
         });
@@ -123,33 +132,25 @@
     window.searchBooks = async () => {
         const list = document.getElementById('bookList');
         if(list.innerHTML.trim() === "") await window.loadBooks();
-        
         const filter = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
-        const rows = list.querySelectorAll('tr');
-        let count = 0;
-        rows.forEach(row => {
-            const text = row.innerText.toLocaleLowerCase('tr-TR');
-            if(text.includes(filter)) { row.style.display = ""; count++; }
-            else { row.style.display = "none"; }
+        list.querySelectorAll('tr').forEach(row => {
+            row.style.display = row.innerText.toLocaleLowerCase('tr-TR').includes(filter) ? "" : "none";
         });
-        document.getElementById('status').innerText = count + " sonuç bulundu.";
     };
 
     window.uploadExcel = () => {
         const file = document.getElementById('excelFile').files[0];
-        if(!file) return alert("Dosya seçiniz!");
+        if(!file) return;
         const reader = new FileReader();
         reader.onload = async (e) => {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {type: 'array'});
-            const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+            const wb = XLSX.read(data, {type: 'array'});
+            const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1});
             for(let i = 1; i < json.length; i++) {
                 const r = json[i];
-                if(r[1]) {
-                    await addDoc(collection(db, "books"), { isbn: String(r[0]||""), title: String(r[1]||""), author: String(r[2]||""), publisher: String(r[3]||""), reader: String(r[4]||"") });
-                }
+                if(r[1]) await addDoc(collection(db, "books"), { isbn: String(r[0]||""), title: String(r[1]||""), author: String(r[2]||""), publisher: String(r[3]||""), reader: String(r[4]||"") });
             }
-            alert("Toplu yükleme tamamlandı!");
+            alert("Tamamlandı!");
             loadBooks();
         };
         reader.readAsArrayBuffer(file);
@@ -158,13 +159,12 @@
     onAuthStateChanged(auth, (user) => {
         if (user) {
             document.getElementById('authSection').style.display = 'none';
-            document.getElementById('librarySection').style.display = 'block';
-            if(user.email === "admin@unallar.com.tr") { 
-                document.getElementById('adminPanel').style.display = 'block'; 
-            }
+            document.getElementById('menuSection').style.display = 'block';
+            showView('libraryView');
+            if(user.email === "admin@unallar.com.tr") document.getElementById('adminPanel').style.display = 'block'; 
         } else {
             document.getElementById('authSection').style.display = 'block';
-            document.getElementById('librarySection').style.display = 'none';
+            document.getElementById('menuSection').style.display = 'none';
         }
     });
 </script>

@@ -1,4 +1,66 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kişisel Kütüphanem</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .view { display: none; }
+        .active { display: block; }
+        input { padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .btn-edit { background: #ffc107; color: black; }
+        #adminPanel { display: none; background: #fff3cd; padding: 20px; margin-top: 20px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📚 Kütüphanem</h1>
+
+    <div id="authSection">
+        <input type="email" id="email" placeholder="E-posta">
+        <input type="password" id="password" placeholder="Şifre">
+        <button onclick="login()">Giriş Yap</button>
+    </div>
+
+    <div id="menuSection" style="display:none; margin-bottom:20px;">
+        <button onclick="showView('libraryView')">Kütüphane</button>
+        <button onclick="showView('statsView')">İstatistik</button>
+        <button onclick="logout()" style="background:#dc3545;">Çıkış</button>
+    </div>
+
+    <div id="libraryView" class="view">
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="searchInput" placeholder="ISBN veya Kitap Adı ile ara..." oninput="searchBooks()">
+            <button onclick="loadBooks()" style="background:#007bff;">Listeyi Yenile</button>
+        </div>
+        <div id="status" style="margin-top:10px; font-weight:bold;"></div>
+        <table>
+            <thead><tr><th>ISBN</th><th>Kitap Adı</th><th>Yazar</th><th>Yayınevi</th><th>Okuyan</th><th>İşlem</th></tr></thead>
+            <tbody id="bookList"></tbody>
+        </table>
+    </div>
+
+    <div id="statsView" class="view">
+        <button onclick="calculateStats()" style="background:#ffc107; color:black;">Verileri Analiz Et</button>
+        <div id="statsContent" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="adminPanel">
+        <h3>Yönetici: Toplu Yükleme</h3>
+        <input type="file" id="excelFile" accept=".xlsx, .xls">
+        <button onclick="uploadExcel()" style="background:#28a745;">Excel'i Yükle</button>
+    </div>
+</div>
+
 <script type="module">
+    // Firebase ve Uygulama Mantığı
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
@@ -17,19 +79,21 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    let allBooks = []; // Kütüphanedeki tüm kitapların hafızası
+    let allBooks = [];
 
+    // Görünüm Değiştirme
     window.showView = (id) => {
         document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
         document.getElementById(id).classList.add('active');
     };
 
+    // Giriş/Çıkış
     window.login = () => signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value).catch(e => alert(e.message));
     window.logout = () => signOut(auth);
 
-    // KİTAPLARI YÜKLE (Tüm işlemlerin temeli)
+    // Kitapları Yükle (Hafızaya Al)
     window.loadBooks = async () => {
-        document.getElementById('status').innerText = "Veritabanından kitaplar çekiliyor...";
+        document.getElementById('status').innerText = "Yükleniyor...";
         const snap = await getDocs(collection(db, "books"));
         allBooks = [];
         snap.forEach(d => allBooks.push({ id: d.id, ...d.data() }));
@@ -37,46 +101,18 @@
         document.getElementById('status').innerText = allBooks.length + " kitap yüklendi.";
     };
 
-    // ARAMA FONKSİYONU (Otomatik veri çekme kontrolü eklendi)
+    // Hızlı Arama
     window.searchBooks = async () => {
-        // Eğer veriler yüklenmemişse önce yükle
         if (allBooks.length === 0) await loadBooks();
-
         const filter = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
         const filtered = allBooks.filter(b => 
             (b.title || "").toLocaleLowerCase('tr-TR').includes(filter) || 
             (b.isbn || "").includes(filter)
         );
         renderTable(filtered);
-        document.getElementById('status').innerText = filtered.length + " sonuç bulundu.";
     };
 
-    // İSTATİSTİK FONKSİYONU (Otomatik veri çekme kontrolü eklendi)
-    window.calculateStats = async () => {
-        // Eğer veriler yüklenmemişse önce yükle
-        if (allBooks.length === 0) await loadBooks();
-
-        const content = document.getElementById('statsContent');
-        let pubCount = {}, authCount = {}, readerCount = {};
-
-        allBooks.forEach(b => {
-            if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
-            if(b.reader) {
-                b.reader.split('/').forEach(name => {
-                    const clean = name.trim();
-                    if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
-                });
-            }
-        });
-
-        let html = `<h4>Okuyucu Skorları:</h4><ul>`;
-        for(let r in readerCount) html += `<li><strong>${r}:</strong> ${readerCount[r]} kitap</li>`;
-        html += `</ul><h4>Yayın Evi Dağılımı:</h4><ul>`;
-        for(let p in pubCount) html += `<li>${p}: ${pubCount[p]} adet</li>`;
-        content.innerHTML = html;
-    };
-
-    // TABLO ÇİZİMİ
+    // Tabloyu Çiz
     function renderTable(data) {
         const list = document.getElementById('bookList');
         list.innerHTML = data.map(b => `
@@ -90,15 +126,48 @@
             </tr>`).join('');
     }
 
-    // DÜZENLEME
+    // Okuyucu Düzenle
     window.editReader = async (id, currentReader) => {
         const newReader = prompt("Yeni okuyucu ismini girin:", currentReader);
         if (newReader !== null) {
             await updateDoc(doc(db, "books", id), { reader: newReader });
-            await loadBooks(); // Listeyi güncelle
+            await loadBooks();
             alert("Güncellendi!");
         }
     };
+
+    // İstatistik Hesapla
+    window.calculateStats = async () => {
+        if (allBooks.length === 0) await loadBooks();
+        let pubCount = {}, readerCount = {};
+        allBooks.forEach(b => {
+            if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
+            if(b.reader) {
+                b.reader.split('/').forEach(n => {
+                    const clean = n.trim();
+                    if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
+                });
+            }
+        });
+        let html = `<h4>Okuyucu Skorları:</h4><ul>`;
+        for(let r in readerCount) html += `<li>${r}: ${readerCount[r]} kitap</li>`;
+        html += `</ul><h4>Yayın Evi:</h4><ul>`;
+        for(let p in pubCount) html += `<li>${p}: ${pubCount[p]} adet</li>`;
+        document.getElementById('statsContent').innerHTML = html;
+    };
+
+    // Admin Panel Kontrolü
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('menuSection').style.display = 'block';
+            showView('libraryView');
+            if(user.email === "admin@unallar.com.tr") document.getElementById('adminPanel').style.display = 'block';
+        } else {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('menuSection').style.display = 'none';
+        }
+    });
 
     window.uploadExcel = () => {
         const file = document.getElementById('excelFile').files[0];
@@ -117,16 +186,6 @@
         };
         reader.readAsArrayBuffer(file);
     };
-
-    onAuthStateChanged(auth, (user) => {
-        if (user) {
-            document.getElementById('authSection').style.display = 'none';
-            document.getElementById('menuSection').style.display = 'block';
-            showView('libraryView');
-            if(user.email === "admin@unallar.com.tr") document.getElementById('adminPanel').style.display = 'block'; 
-        } else {
-            document.getElementById('authSection').style.display = 'block';
-            document.getElementById('menuSection').style.display = 'none';
-        }
-    });
 </script>
+</body>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Kütüphane İstatistikleri</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+        .chart-box { margin-bottom: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 İstatistik Paneli</h1>
+        <button onclick="window.location.href='index.html'">Geri Dön</button>
+        <div id="status">Veriler yükleniyor...</div>
+        
+        <div class="chart-box"><canvas id="readerChart"></canvas></div>
+        <div class="chart-box"><canvas id="pubChart"></canvas></div>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = { /* Kendi Firebase bilgilerini buraya yapıştır */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    async function loadStats() {
+        const snap = await getDocs(collection(db, "books"));
+        let pubCount = {}, readerCount = {};
+
+        snap.forEach(doc => {
+            const b = doc.data();
+            if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
+            if(b.reader) {
+                b.reader.split('/').forEach(n => {
+                    const clean = n.trim();
+                    if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
+                });
+            }
+        });
+
+        document.getElementById('status').innerText = "Analiz bitti, grafikler oluşturuluyor.";
+        
+        // Okuyucu Grafiği
+        new Chart(document.getElementById('readerChart'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(readerCount),
+                datasets: [{ label: 'Okunan Kitap Sayısı', data: Object.values(readerCount), backgroundColor: '#28a745' }]
+            }
+        });
+
+        // Yayın Evi Grafiği
+        new Chart(document.getElementById('pubChart'), {
+            type: 'pie',
+            data: {
+                labels: Object.keys(pubCount),
+                datasets: [{ data: Object.values(pubCount), backgroundColor: ['#007bff', '#ffc107', '#dc3545', '#17a2b8'] }]
+            }
+        });
+    }
+    loadStats();
+</script>
+</body>
+</html>

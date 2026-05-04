@@ -128,7 +128,9 @@ q = query(collection(db,"books"), where("isbn","==",val));
 // TITLE
 q = query(
 collection(db,"books"),
-orderBy("title_lower"),
+orderBy("title")
+startAt(val)
+endAt(val + "\uf8ff"),
 startAt(val),
 endAt(val+"\uf8ff"),
 limit(20)

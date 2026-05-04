@@ -1,42 +1,9 @@
-<!DOCTYPE html>
-<html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>Kütüphane İstatistik Paneli</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .chart-box { width: 100%; margin-bottom: 40px; padding: 20px; background: #fff; }
-        h1 { text-align: center; color: #333; }
-        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <h1>📊 Kütüphane İstatistik Paneli</h1>
-    <button class="btn-back" onclick="window.location.href='index.html'">Kütüphaneye Dön</button>
-    
-    <div id="status" style="margin:20px 0; font-weight:bold; color: #555;">Analiz ediliyor...</div>
-
-    <div class="chart-box">
-        <h3>Okuyucu Skorları (Kitap Sayısı)</h3>
-        <canvas id="readerChart"></canvas>
-    </div>
-    
-    <div class="chart-box">
-        <h3>Yayın Evi Dağılımı</h3>
-        <canvas id="pubChart"></canvas>
-    </div>
-</div>
-
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    // --- BURAYA KENDİ BİLGİLERİNİ YAPIŞTIR ---
-    const firebaseConfig = {
+    const firebaseConfig = { 
+        /* Senin Firebase ayarların */ 
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
         authDomain: "onlinekutuphanem.firebaseapp.com",
         projectId: "onlinekutuphanem",
@@ -45,64 +12,64 @@
         appId: "1:772703511419:web:322073bf09ef86a32193de",
         measurementId: "G-NXBFE7JH8Q"
     };
-    // ----------------------------------------
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
     async function loadStats() {
         const status = document.getElementById('status');
-        const snap = await getDocs(collection(db, "books"));
-        
-        if (snap.empty) {
-            status.innerText = "Henüz veritabanında kitap yok!";
-            return;
-        }
-
-        let pubCount = {}, readerCount = {};
-
-        snap.forEach(doc => {
-            const b = doc.data();
-            // Yayın Evi
-            if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
+        try {
+            status.innerText = "Firebase'e bağlanılıyor...";
+            const querySnapshot = await getDocs(collection(db, "books"));
             
-            // Okuyanlar (Slash ayrımı)
-            if(b.reader) {
-                b.reader.split('/').forEach(n => {
-                    const clean = n.trim();
-                    if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
-                });
+            if (querySnapshot.empty) {
+                status.innerText = "Veritabanında hiç kitap bulunamadı.";
+                return;
             }
-        });
 
-        // SIRALAMA MANTIĞI: (Büyükten küçüğe sırala)
-        const sortObj = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+            status.innerText = "Veriler analiz ediliyor...";
+            let pubCount = {}, readerCount = {};
 
-        const sortedReaders = sortObj(readerCount);
-        const sortedPubs = sortObj(pubCount);
+            querySnapshot.forEach(doc => {
+                const b = doc.data();
+                if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
+                if(b.reader) {
+                    b.reader.split('/').forEach(n => {
+                        const clean = n.trim();
+                        if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
+                    });
+                }
+            });
 
-        status.innerText = "Analiz tamamlandı.";
+            // Sıralama
+            const sortObj = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+            const sortedReaders = sortObj(readerCount);
+            const sortedPubs = sortObj(pubCount);
 
-        // Grafik 1: Okuyucular (Çubuk Grafik)
-        new Chart(document.getElementById('readerChart'), {
-            type: 'bar',
-            data: {
-                labels: sortedReaders.map(x => x[0]),
-                datasets: [{ label: 'Okunan Kitap Sayısı', data: sortedReaders.map(x => x[1]), backgroundColor: '#28a745' }]
-            }
-        });
+            status.innerText = "Analiz tamamlandı.";
 
-        // Grafik 2: Yayın Evleri (Daire Grafik)
-        new Chart(document.getElementById('pubChart'), {
-            type: 'pie',
-            data: {
-                labels: sortedPubs.map(x => x[0]),
-                datasets: [{ data: sortedPubs.map(x => x[1]), backgroundColor: ['#007bff', '#ffc107', '#dc3545', '#17a2b8', '#6c757d'] }]
-            }
-        });
+            // Grafik 1
+            new Chart(document.getElementById('readerChart'), {
+                type: 'bar',
+                data: {
+                    labels: sortedReaders.map(x => x[0]),
+                    datasets: [{ label: 'Okunan Kitap Sayısı', data: sortedReaders.map(x => x[1]), backgroundColor: '#28a745' }]
+                }
+            });
+
+            // Grafik 2
+            new Chart(document.getElementById('pubChart'), {
+                type: 'pie',
+                data: {
+                    labels: sortedPubs.map(x => x[0]),
+                    datasets: [{ data: sortedPubs.map(x => x[1]), backgroundColor: ['#007bff', '#ffc107', '#dc3545', '#17a2b8', '#6c757d'] }]
+                }
+            });
+
+        } catch (error) {
+            status.innerHTML = "<b style='color:red;'>HATA: " + error.message + "</b>";
+            console.error("Firebase Hatası:", error);
+        }
     }
-
     loadStats();
 </script>
-</body>
-</html>

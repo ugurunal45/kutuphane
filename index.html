@@ -73,7 +73,7 @@ import { getFirestore, collection, getDocs, addDoc, query, where, orderBy, start
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
 const firebaseConfig = {
-apiKey: "AIzaSyCb...",
+apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
 authDomain: "onlinekutuphanem.firebaseapp.com",
 projectId: "onlinekutuphanem",
 };
@@ -89,7 +89,16 @@ document.getElementById(id).classList.add('active');
 };
 
 // AUTH
-window.login = ()=> signInWithEmailAndPassword(auth,email.value,password.value);
+window.login = () => {
+    const emailVal = document.getElementById('email').value;
+    const passVal = document.getElementById('password').value;
+
+    signInWithEmailAndPassword(auth, emailVal, passVal)
+    .catch(e => {
+        alert("Hata: " + e.message);
+        console.error(e);
+    });
+};
 window.logout = ()=> signOut(auth);
 
 // DEBOUNCE

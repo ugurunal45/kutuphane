@@ -27,6 +27,11 @@
     </div>
 
     <div class="card">
+        <h2>✍️ Yazar Skorları</h2>
+        <div id="authorList"></div>
+    </div>
+
+    <div class="card">
         <h2>🏢 Yayın Evi Dağılımı</h2>
         <div id="pubList"></div>
     </div>
@@ -36,7 +41,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    // Kendi firebase config bilgilerini buraya yapıştır
     const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
         authDomain: "onlinekutuphanem.firebaseapp.com",
@@ -54,11 +58,15 @@
         const status = document.getElementById('status');
         const snap = await getDocs(collection(db, "books"));
         
-        let pubCount = {}, readerCount = {};
+        let pubCount = {}, readerCount = {}, authorCount = {};
 
         snap.forEach(doc => {
             const b = doc.data();
+            // Yayın Evi
             if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
+            // Yazar
+            if(b.author) authorCount[b.author] = (authorCount[b.author] || 0) + 1;
+            // Okuyan
             if(b.reader) {
                 b.reader.split('/').forEach(n => {
                     const clean = n.trim();
@@ -69,25 +77,20 @@
 
         // SIRALAMA: Büyükten küçüğe
         const sortedReaders = Object.entries(readerCount).sort((a, b) => b[1] - a[1]);
+        const sortedAuthors = Object.entries(authorCount).sort((a, b) => b[1] - a[1]);
         const sortedPubs = Object.entries(pubCount).sort((a, b) => b[1] - a[1]);
 
-        // Okuyucu Listesini Yazdır
-        const rList = document.getElementById('readerList');
-        rList.innerHTML = sortedReaders.map(item => `
-            <div class="list-item">
-                <span>${item[0]}</span>
-                <span class="count-badge">${item[1]} Kitap</span>
-            </div>
-        `).join('');
+        // Okuyucuları Yazdır
+        document.getElementById('readerList').innerHTML = sortedReaders.map(item => `
+            <div class="list-item"><span>${item[0]}</span><span class="count-badge">${item[1]}</span></div>`).join('');
 
-        // Yayın Evi Listesini Yazdır
-        const pList = document.getElementById('pubList');
-        pList.innerHTML = sortedPubs.map(item => `
-            <div class="list-item">
-                <span>${item[0]}</span>
-                <span class="count-badge">${item[1]} Kitap</span>
-            </div>
-        `).join('');
+        // Yazarları Yazdır
+        document.getElementById('authorList').innerHTML = sortedAuthors.map(item => `
+            <div class="list-item"><span>${item[0]}</span><span class="count-badge">${item[1]}</span></div>`).join('');
+
+        // Yayın Evlerini Yazdır
+        document.getElementById('pubList').innerHTML = sortedPubs.map(item => `
+            <div class="list-item"><span>${item[0]}</span><span class="count-badge">${item[1]}</span></div>`).join('');
 
         status.innerText = "Analiz başarıyla tamamlandı.";
     }

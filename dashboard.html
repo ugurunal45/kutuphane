@@ -1,9 +1,22 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>İstatistik Paneli</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>📊 İstatistik Paneli</h1>
+    <div id="status" style="color: blue;">Başlatılıyor...</div>
+    <div id="error" style="color: red; font-weight: bold;"></div>
+    <div style="width: 80%;"><canvas id="readerChart"></canvas></div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    const firebaseConfig = { 
-        /* Senin Firebase ayarların */ 
+    // 1. Firebase Ayarları (Kendi bilgilerini buraya yapıştır)
+    const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
         authDomain: "onlinekutuphanem.firebaseapp.com",
         projectId: "onlinekutuphanem",
@@ -13,63 +26,40 @@
         measurementId: "G-NXBFE7JH8Q"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    try {
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        document.getElementById('status').innerText = "Firebase'e bağlandık, veriler çekiliyor...";
 
-    async function loadStats() {
-        const status = document.getElementById('status');
-        try {
-            status.innerText = "Firebase'e bağlanılıyor...";
-            const querySnapshot = await getDocs(collection(db, "books"));
-            
-            if (querySnapshot.empty) {
-                status.innerText = "Veritabanında hiç kitap bulunamadı.";
-                return;
+        const snap = await getDocs(collection(db, "books"));
+        document.getElementById('status').innerText = snap.size + " kitap bulundu, analiz ediliyor...";
+
+        let readerCount = {};
+        snap.forEach(doc => {
+            const b = doc.data();
+            if(b.reader) {
+                b.reader.split('/').forEach(n => {
+                    const clean = n.trim();
+                    if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
+                });
             }
+        });
 
-            status.innerText = "Veriler analiz ediliyor...";
-            let pubCount = {}, readerCount = {};
+        document.getElementById('status').innerText = "Grafik çiziliyor...";
+        
+        new Chart(document.getElementById('readerChart'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(readerCount),
+                datasets: [{ label: 'Okunan Kitap Sayısı', data: Object.values(readerCount), backgroundColor: '#28a745' }]
+            }
+        });
+        document.getElementById('status').innerText = "İşlem tamam!";
 
-            querySnapshot.forEach(doc => {
-                const b = doc.data();
-                if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
-                if(b.reader) {
-                    b.reader.split('/').forEach(n => {
-                        const clean = n.trim();
-                        if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
-                    });
-                }
-            });
-
-            // Sıralama
-            const sortObj = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
-            const sortedReaders = sortObj(readerCount);
-            const sortedPubs = sortObj(pubCount);
-
-            status.innerText = "Analiz tamamlandı.";
-
-            // Grafik 1
-            new Chart(document.getElementById('readerChart'), {
-                type: 'bar',
-                data: {
-                    labels: sortedReaders.map(x => x[0]),
-                    datasets: [{ label: 'Okunan Kitap Sayısı', data: sortedReaders.map(x => x[1]), backgroundColor: '#28a745' }]
-                }
-            });
-
-            // Grafik 2
-            new Chart(document.getElementById('pubChart'), {
-                type: 'pie',
-                data: {
-                    labels: sortedPubs.map(x => x[0]),
-                    datasets: [{ data: sortedPubs.map(x => x[1]), backgroundColor: ['#007bff', '#ffc107', '#dc3545', '#17a2b8', '#6c757d'] }]
-                }
-            });
-
-        } catch (error) {
-            status.innerHTML = "<b style='color:red;'>HATA: " + error.message + "</b>";
-            console.error("Firebase Hatası:", error);
-        }
+    } catch (err) {
+        document.getElementById('error').innerText = "HATA: " + err.message;
+        console.error(err);
     }
-    loadStats();
 </script>
+</body>
+</html>

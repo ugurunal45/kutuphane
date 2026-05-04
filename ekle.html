@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Manuel Kitap Girişi</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Dışarıdan Alınan Kitap Ekle</h2>
+        <input type="text" id="readerName" placeholder="Okuyucu Adı">
+        <input type="number" id="count" placeholder="Okuduğu Kitap Sayısı">
+        <button onclick="saveData()">Kaydet</button>
+        <button onclick="window.location.href='dashboard.html'" style="background:#6c757d; margin-top:10px;">İstatistiğe Dön</button>
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    
+    // Config bilgilerini buraya yapıştır...
+    const firebaseConfig = { /* ... AYARLARIN ... */ };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.saveData = async () => {
+        const name = document.getElementById('readerName').value;
+        const count = parseInt(document.getElementById('count').value);
+        if(!name || !count) return alert("Eksik bilgi!");
+        
+        await addDoc(collection(db, "manual_reads"), { name, count });
+        alert("Başarıyla eklendi!");
+        location.reload();
+    };
+</script>
+</body>
+</html>

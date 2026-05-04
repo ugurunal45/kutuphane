@@ -2,33 +2,33 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Kütüphane İstatistikleri</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Kütüphane Analiz Paneli</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .chart-wrapper { position: relative; height: 350px; width: 100%; margin-bottom: 50px; }
-        h1 { text-align: center; color: #333; margin-bottom: 30px; }
-        .btn-back { background: #555; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; }
-        .btn-back:hover { background: #333; }
+        .container { max-width: 600px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .list-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
+        .list-item:last-child { border-bottom: none; }
+        .count-badge { background: #007bff; color: white; padding: 2px 10px; border-radius: 12px; font-weight: bold; }
+        h2 { color: #333; margin-top: 0; }
+        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📊 Kütüphane Veri Analizi</h1>
-    <button class="btn-back" onclick="window.location.href='index.html'">Geri Dön</button>
+    <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
     
-    <div id="status" style="margin:20px 0; font-weight:bold; color: #555;">Analiz ediliyor...</div>
+    <div id="status" style="margin-bottom: 15px;">Veriler hazırlanıyor...</div>
 
-    <div class="chart-wrapper">
-        <h3>Okuyucu Skorları</h3>
-        <canvas id="readerChart"></canvas>
+    <div class="card">
+        <h2>👥 Okuyucu Skorları</h2>
+        <div id="readerList"></div>
     </div>
-    
-    <div class="chart-wrapper">
-        <h3>Yayın Evi Dağılımı</h3>
-        <canvas id="pubChart"></canvas>
+
+    <div class="card">
+        <h2>🏢 Yayın Evi Dağılımı</h2>
+        <div id="pubList"></div>
     </div>
 </div>
 
@@ -36,7 +36,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    const firebaseConfig = { 
+    // Kendi firebase config bilgilerini buraya yapıştır
+    const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
         authDomain: "onlinekutuphanem.firebaseapp.com",
         projectId: "onlinekutuphanem",
@@ -50,7 +51,9 @@
     const db = getFirestore(app);
 
     async function loadStats() {
+        const status = document.getElementById('status');
         const snap = await getDocs(collection(db, "books"));
+        
         let pubCount = {}, readerCount = {};
 
         snap.forEach(doc => {
@@ -64,42 +67,31 @@
             }
         });
 
-        document.getElementById('status').innerText = "Grafikler oluşturuldu.";
+        // SIRALAMA: Büyükten küçüğe
+        const sortedReaders = Object.entries(readerCount).sort((a, b) => b[1] - a[1]);
+        const sortedPubs = Object.entries(pubCount).sort((a, b) => b[1] - a[1]);
 
-        // Grafik Seçenekleri (Responsive)
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'top' } }
-        };
+        // Okuyucu Listesini Yazdır
+        const rList = document.getElementById('readerList');
+        rList.innerHTML = sortedReaders.map(item => `
+            <div class="list-item">
+                <span>${item[0]}</span>
+                <span class="count-badge">${item[1]} Kitap</span>
+            </div>
+        `).join('');
 
-        // Okuyucu Grafiği (Bar)
-        new Chart(document.getElementById('readerChart'), {
-            type: 'bar',
-            data: {
-                labels: Object.keys(readerCount),
-                datasets: [{ 
-                    label: 'Okunan Kitap Sayısı', 
-                    data: Object.values(readerCount), 
-                    backgroundColor: '#4e73df' 
-                }]
-            },
-            options: commonOptions
-        });
+        // Yayın Evi Listesini Yazdır
+        const pList = document.getElementById('pubList');
+        pList.innerHTML = sortedPubs.map(item => `
+            <div class="list-item">
+                <span>${item[0]}</span>
+                <span class="count-badge">${item[1]} Kitap</span>
+            </div>
+        `).join('');
 
-        // Yayınevi Grafiği (Pie)
-        new Chart(document.getElementById('pubChart'), {
-            type: 'pie',
-            data: {
-                labels: Object.keys(pubCount),
-                datasets: [{ 
-                    data: Object.values(pubCount), 
-                    backgroundColor: ['#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff'] 
-                }]
-            },
-            options: commonOptions
-        });
+        status.innerText = "Analiz başarıyla tamamlandı.";
     }
+
     loadStats();
 </script>
 </body>

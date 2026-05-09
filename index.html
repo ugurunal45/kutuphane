@@ -3,33 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kişisel Kütüphanem - Yönetim</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <title>Kütüphane Yönetimi</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
         .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-        .view { display: none; }
-        .active { display: block; }
-        input { padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 14px; }
-        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #0056b3; }
+        .view { display: none; } .active { display: block; }
+        input { padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: bold; }
         .admin-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 25px; }
         .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .search-sticky { position: sticky; top: 0; background: white; padding: 15px 0; z-index: 100; border-bottom: 2px solid #eee; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
         th, td { border: 1px solid #eee; padding: 12px; text-align: left; font-size: 14px; word-wrap: break-word; }
         th { background: #f8f9fa; position: sticky; top: 85px; z-index: 90; }
-        tr:nth-child(even) { background-color: #fcfcfc; }
-        .btn-edit { background: #ffc107; color: black; padding: 5px 10px; font-size: 12px; }
+        .btn-edit { background: #ffc107; color: black; padding: 5px 10px; font-size: 12px; border-radius: 4px; border:none; cursor:pointer; }
         .btn-success { background: #28a745; width: 100%; }
-        .status-text { font-size: 13px; color: #666; font-weight: bold; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="authSection">
-        <h2 style="text-align:center;">📚 Kütüphane Girişi</h2>
+        <h2 style="text-align:center;">📚 Giriş Yap</h2>
         <input type="email" id="email" placeholder="E-posta">
         <input type="password" id="password" placeholder="Şifre">
         <button onclick="login()" style="width:100%; margin-top:10px;">Giriş Yap</button>
@@ -38,7 +33,7 @@
     <div id="menuSection" class="view">
         <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
             <button onclick="window.location.href='dashboard.html'" style="background: #6c757d;">📊 İstatistikler</button>
-            <button onclick="logout()" style="background:#dc3545;">Güvenli Çıkış</button>
+            <button onclick="logout()" style="background:#dc3545;">Çıkış Yap</button>
         </div>
 
         <div id="adminPanel" style="display:none;">
@@ -50,25 +45,19 @@
                     <input type="text" id="m_author" placeholder="Yazar" list="authorsList">
                     <input type="text" id="m_publisher" placeholder="Yayın Evi" list="publishersList">
                 </div>
-                <input type="text" id="m_reader" placeholder="Okuyan (Örn: Uğur / Meltem)">
-                <button onclick="saveManualBook()" class="btn-success">Veritabanına Kaydet</button>
+                <input type="text" id="m_reader" placeholder="Okuyan Kişi">
+                <button onclick="saveManualBook()" class="btn-success">Kaydet</button>
             </div>
-            
             <datalist id="authorsList"></datalist>
             <datalist id="publishersList"></datalist>
-
-            <div class="admin-section">
-                <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <button onclick="uploadExcel()" style="margin-top:10px;">Toplu Excel Yükle</button>
-            </div>
         </div>
 
         <div class="search-sticky">
-            <input type="text" id="searchInput" placeholder="Kitap, Yazar veya ISBN Ara (En az 2 harf)..." oninput="debounceSearch()">
-            <div id="status" class="status-text">Sistem hazırlanıyor...</div>
+            <input type="text" id="searchInput" placeholder="Aramak istediğiniz kelimeyi yazın..." oninput="debounceSearch()">
+            <div id="status" style="font-size: 13px; color: #666; font-weight: bold; margin-top: 5px;">Bağlanıyor...</div>
         </div>
 
-        <table id="mainTable">
+        <table>
             <thead>
                 <tr>
                     <th style="width: 15%;">ISBN</th>
@@ -95,8 +84,7 @@
         projectId: "onlinekutuphanem",
         storageBucket: "onlinekutuphanem.firebasestorage.app",
         messagingSenderId: "772703511419",
-        appId: "1:772703511419:web:322073bf09ef86a32193de",
-        measurementId: "G-NXBFE7JH8Q"
+        appId: "1:772703511419:web:322073bf09ef86a32193de"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -117,30 +105,30 @@
             document.getElementById('menuSection').classList.add('active');
             if(user.email === "admin@unallar.com.tr") document.getElementById('adminPanel').style.display = 'block';
             preloadData();
-        } else {
-            document.getElementById('authSection').style.display = 'block';
-            document.getElementById('menuSection').classList.remove('active');
         }
     });
 
     async function preloadData() {
         const snap = await getDocs(collection(db, "books"));
         allBooks = [];
-        const authors = new Set();
-        const publishers = new Set();
-
+        const authors = new Set(), publishers = new Set();
         snap.forEach(d => {
             const data = { id: d.id, ...d.data() };
             allBooks.push(data);
             if(data.author) authors.add(data.author);
             if(data.publisher) publishers.add(data.publisher);
         });
-
-        // Otomatik tamamlama listelerini doldur
         document.getElementById('authorsList').innerHTML = Array.from(authors).map(a => `<option value="${a}">`).join('');
         document.getElementById('publishersList').innerHTML = Array.from(publishers).map(p => `<option value="${p}">`).join('');
-        
-        document.getElementById('status').innerText = "✅ " + allBooks.length + " kitap hazır.";
+        document.getElementById('status').innerText = "✅ " + allBooks.length + " kitap yüklendi.";
+
+        // Dashboard'dan yönlendirme yapıldıysa otomatik arama yap
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchParam = urlParams.get('search');
+        if (searchParam) {
+            document.getElementById('searchInput').value = decodeURIComponent(searchParam);
+            debounceSearch();
+        }
     }
 
     window.debounceSearch = () => {
@@ -148,13 +136,14 @@
         searchTimer = setTimeout(() => {
             const term = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR').trim();
             const list = document.getElementById('bookList');
-            
             if(term.length < 2) { list.innerHTML = ""; return; }
 
             const filtered = allBooks.filter(b => 
                 (b.title || "").toLocaleLowerCase('tr-TR').includes(term) || 
                 (b.isbn || "").includes(term) ||
-                (b.author || "").toLocaleLowerCase('tr-TR').includes(term)
+                (b.author || "").toLocaleLowerCase('tr-TR').includes(term) ||
+                (b.publisher || "").toLocaleLowerCase('tr-TR').includes(term) ||
+                (b.reader || "").toLocaleLowerCase('tr-TR').includes(term)
             ).slice(0, 50);
 
             list.innerHTML = filtered.map(b => `
@@ -174,32 +163,28 @@
         if(newVal !== null) {
             await updateDoc(doc(db, "books", id), { reader: newVal });
             alert("Güncellendi!");
-            preloadData(); // Veriyi tazele
+            location.reload();
         }
     };
 
     window.saveManualBook = async () => {
         const isbn = document.getElementById('m_isbn').value.trim();
         const title = document.getElementById('m_title').value.trim();
-        if(!title) return alert("Kitap adı zorunludur!");
-
+        if(!title) return alert("Kitap adı giriniz!");
         if(isbn) {
             const q = query(collection(db, "books"), where("isbn", "==", isbn));
             const check = await getDocs(q);
-            if(!check.empty) return alert("⚠️ Bu ISBN zaten kayıtlı!");
+            if(!check.empty) return alert("Bu ISBN zaten kayıtlı!");
         }
-
         await addDoc(collection(db, "books"), {
             isbn, title, 
             author: document.getElementById('m_author').value,
             publisher: document.getElementById('m_publisher').value,
             reader: document.getElementById('m_reader').value
         });
-        alert("✅ Başarıyla eklendi.");
-        preloadData();
+        alert("Eklendi!");
+        location.reload();
     };
-
-    window.uploadExcel = () => { /* Excel kodları burada */ };
 </script>
 </body>
 </html>

@@ -2,44 +2,49 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Kütüphane Analiz Paneli</title>
+    <title>Analiz Paneli</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 600px; margin: auto; }
+        .container { max-width: 1200px; margin: auto; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        .list-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #eee; }
-        .list-item:last-child { border-bottom: none; }
-        .count-badge { background: #007bff; color: white; padding: 2px 10px; border-radius: 12px; font-weight: bold; }
-        h2 { color: #333; margin-top: 0; }
+        .full-width { grid-column: span 2; }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .clickable { cursor: pointer; color: #007bff; font-weight: 500; }
+        .clickable:hover { text-decoration: underline; }
+        .count-badge { background: #e7f1ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
+        .extra-info { font-size: 12px; color: #666; margin-left: 5px; }
+        .btn-add { background: #28a745; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
-    
-    <div id="status" style="margin-bottom: 15px;">Veriler hazırlanıyor...</div>
 
-    <div class="card">
-        <h2>👥 Okuyucu Skorları</h2>
-        <div id="readerList"></div>
-    </div>
+    <div class="grid-layout">
+        <div class="card full-width">
+            <h2>👤 Okuyucu İstatistikleri (Toplam + Ödünç)</h2>
+            <div id="readerList">Yükleniyor...</div>
+        </div>
 
-    <div class="card">
-        <h2>✍️ Yazar Skorları</h2>
-        <div id="authorList"></div>
-    </div>
+        <div class="card">
+            <h2>✍️ Yazarlar (Sol)</h2>
+            <div id="authorList">Yükleniyor...</div>
+        </div>
 
-    <div class="card">
-        <h2>🏢 Yayın Evi Dağılımı</h2>
-        <div id="pubList"></div>
+        <div class="card">
+            <h2>🏢 Yayın Evleri (Sağ)</h2>
+            <div id="pubList">Yükleniyor...</div>
+        </div>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
@@ -47,53 +52,83 @@
         projectId: "onlinekutuphanem",
         storageBucket: "onlinekutuphanem.firebasestorage.app",
         messagingSenderId: "772703511419",
-        appId: "1:772703511419:web:322073bf09ef86a32193de",
-        measurementId: "G-NXBFE7JH8Q"
+        appId: "1:772703511419:web:322073bf09ef86a32193de"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
     async function loadStats() {
-        const status = document.getElementById('status');
         const snap = await getDocs(collection(db, "books"));
-        
-        let pubCount = {}, readerCount = {}, authorCount = {};
+        const extraSnap = await getDoc(doc(db, "settings", "extra_counts"));
+        const extraData = extraSnap.exists() ? extraSnap.data() : {};
 
-        snap.forEach(doc => {
-            const b = doc.data();
-            // Yayın Evi
+        let readerCount = {}, authorCount = {}, pubCount = {};
+
+        snap.forEach(d => {
+            const b = d.data();
             if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
-            // Yazar
             if(b.author) authorCount[b.author] = (authorCount[b.author] || 0) + 1;
-            // Okuyan
             if(b.reader) {
-                b.reader.split('/').forEach(n => {
-                    const clean = n.trim();
-                    if(clean) readerCount[clean] = (readerCount[clean] || 0) + 1;
+                b.reader.split('/').forEach(r => {
+                    const name = r.trim();
+                    if(name) readerCount[name] = (readerCount[name] || 0) + 1;
                 });
             }
         });
 
-        // SIRALAMA: Büyükten küçüğe
-        const sortedReaders = Object.entries(readerCount).sort((a, b) => b[1] - a[1]);
-        const sortedAuthors = Object.entries(authorCount).sort((a, b) => b[1] - a[1]);
-        const sortedPubs = Object.entries(pubCount).sort((a, b) => b[1] - a[1]);
-
-        // Okuyucuları Yazdır
-        document.getElementById('readerList').innerHTML = sortedReaders.map(item => `
-            <div class="list-item"><span>${item[0]}</span><span class="count-badge">${item[1]}</span></div>`).join('');
-
-        // Yazarları Yazdır
-        document.getElementById('authorList').innerHTML = sortedAuthors.map(item => `
-            <div class="list-item"><span>${item[0]}</span><span class="count-badge">${item[1]}</span></div>`).join('');
-
-        // Yayın Evlerini Yazdır
-        document.getElementById('pubList').innerHTML = sortedPubs.map(item => `
-            <div class="list-item"><span>${item[0]}</span><span class="count-badge">${item[1]}</span></div>`).join('');
-
-        status.innerText = "Analiz başarıyla tamamlandı.";
+        renderReaders(readerCount, extraData);
+        renderSimpleList('authorList', authorCount);
+        renderSimpleList('pubList', pubCount);
     }
+
+    window.goToSearch = (term) => {
+        window.location.href = `index.html?search=${encodeURIComponent(term)}`;
+    };
+
+    function renderSimpleList(elementId, data) {
+        const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+        document.getElementById(elementId).innerHTML = sorted.map(item => `
+            <div class="list-item">
+                <span class="clickable" onclick="goToSearch('${item[0]}')">${item[0]}</span>
+                <span class="count-badge">${item[1]}</span>
+            </div>`).join('');
+    }
+
+    function renderReaders(readers, extraData) {
+        const sorted = Object.entries(readers).sort((a, b) => {
+            const totalA = b[1] + (extraData[b[0]] || 0);
+            const totalB = a[1] + (extraData[a[0]] || 0);
+            return totalB - totalA;
+        });
+
+        document.getElementById('readerList').innerHTML = sorted.map(item => {
+            const name = item[0], reg = item[1], extra = extraData[name] || 0, total = reg + extra;
+            return `
+            <div class="list-item">
+                <div>
+                    <span class="clickable" onclick="goToSearch('${name}')">${name}</span>
+                    <span class="extra-info">(${total} toplam: ${reg} kayıtlı + ${extra} ödünç)</span>
+                </div>
+                <div>
+                    <span class="count-badge">${total}</span>
+                    <button class="btn-add" onclick="addExtra('${name}')">+ Sayı Ekle</button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    window.addExtra = async (name) => {
+        const amount = prompt(`${name} için eklenecek ödünç kitap sayısı:`, "0");
+        if (amount !== null && !isNaN(amount)) {
+            const extraSnap = await getDoc(doc(db, "settings", "extra_counts"));
+            let current = extraSnap.exists() ? extraSnap.data() : {};
+            current[name] = (current[name] || 0) + parseInt(amount);
+            await setDoc(doc(db, "settings", "extra_counts"), current);
+            alert("Başarıyla eklendi!");
+            loadStats();
+        }
+    };
 
     loadStats();
 </script>

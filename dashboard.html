@@ -9,14 +9,15 @@
         .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .full-width { grid-column: span 2; }
+        /* GENEL TOPLAM KUTUSU */
         .summary-box { background: #007bff; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-size: 20px; font-weight: bold; }
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
         .clickable { cursor: pointer; color: #007bff; font-weight: 500; }
         .clickable:hover { text-decoration: underline; }
         .count-badge { background: #e7f1ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
         .btn-add { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; color: #333; }
     </style>
 </head>
 <body>
@@ -24,11 +25,11 @@
 <div class="container">
     <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
     
-    <div id="totalSummary" class="summary-box">Yükleniyor...</div>
+    <div id="totalSummary" class="summary-box">Veriler Hesaplanıyor...</div>
 
     <div class="grid-layout">
         <div class="card full-width">
-            <h2>👤 Okuyucu İstatistikleri</h2>
+            <h2>👤 Okuyucu İstatistikleri (Kayıtlı + Ödünç)</h2>
             <div id="readerList">Yükleniyor...</div>
         </div>
 
@@ -63,7 +64,7 @@
     async function loadStats() {
         const snap = await getDocs(collection(db, "books"));
         
-        // Ödünç sayılarını "extra_counts" dokümanından çek
+        // Ödünç verilerini "extra_counts" dokümanından çek
         const extraRef = doc(db, "settings", "extra_counts");
         const extraSnap = await getDoc(extraRef);
         const extraData = extraSnap.exists() ? extraSnap.data() : {};
@@ -84,7 +85,7 @@
             }
         });
 
-        // Toplam Ödünç Hesapla
+        // Toplam Ödünç Sayısını Hesapla
         let totalExtra = Object.values(extraData).reduce((a, b) => a + b, 0);
         document.getElementById('totalSummary').innerText = `Genel Toplam: ${totalRegistered + totalExtra} Kitap (${totalRegistered} Kayıtlı + ${totalExtra} Ödünç)`;
 
@@ -93,8 +94,8 @@
         renderSimpleList('pubList', pubs);
     }
 
+    // Ana sayfada arama yaptırmak için yönlendirme
     window.goToSearch = (name) => {
-        // Parametreyi güvenli şekilde gönder
         window.location.href = `index.html?search=${encodeURIComponent(name)}`;
     };
 
@@ -124,14 +125,15 @@
                 </div>
                 <div>
                     <span class="count-badge">${total}</span>
-                    <button class="btn-add" onclick="updateExtra('${name}', ${extra})">Sayı Ekle</button>
+                    <button class="btn-add" onclick="updateExtra('${name}', ${extra})">Sayıyı Güncelle</button>
                 </div>
             </div>`;
         }).join('');
     }
 
+    // Ödünç sayısını güncelleyen fonksiyon
     window.updateExtra = async (name, currentExtra) => {
-        const val = prompt(`${name} için YENİ ödünç kitap sayısını girin (Mevcut: ${currentExtra}):`, currentExtra);
+        const val = prompt(`${name} için ÖDÜNÇ kitap sayısını girin (Şu an: ${currentExtra}):`, currentExtra);
         if (val !== null && !isNaN(val)) {
             const extraRef = doc(db, "settings", "extra_counts");
             const extraSnap = await getDoc(extraRef);
@@ -140,7 +142,7 @@
             currentData[name] = parseInt(val);
             
             await setDoc(extraRef, currentData);
-            alert("Sayı güncellendi!");
+            alert("✅ Sayı başarıyla güncellendi!");
             loadStats();
         }
     };

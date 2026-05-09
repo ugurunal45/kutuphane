@@ -3,101 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kişisel Kütüphanem - Yönetim Paneli</title>
+    <title>Kişisel Kütüphanem</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
-        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
         .view { display: none; }
         .active { display: block; }
         
-        /* Form Elemanları */
-        .form-group { margin-bottom: 15px; }
+        /* Form ve Inputlar */
         input { padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 14px; }
-        input:focus { border-color: #007bff; outline: none; box-shadow: 0 0 5px rgba(0,123,255,0.2); }
+        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #0056b3; }
         
-        button { padding: 10px 20px; cursor: pointer; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: 600; transition: 0.3s; margin-right: 5px; }
-        button:hover { background: #0056b3; transform: translateY(-1px); }
-        .btn-success { background: #28a745; }
-        .btn-success:hover { background: #218838; }
-        .btn-danger { background: #dc3545; }
+        /* Admin Paneli */
+        #adminPanel { background: #fff3cd; padding: 20px; margin-bottom: 25px; border-radius: 8px; border: 1px solid #ffeeba; }
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         
-        /* Tablo Stilleri */
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { border: 1px solid #eee; padding: 12px; text-align: left; }
-        th { background: #f8f9fa; color: #555; font-weight: 600; }
-        tr:hover { background-color: #fcfcfc; }
-        
-        /* Admin Paneli Bölümleri */
-        .admin-section { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 25px; }
-        .admin-section h3 { margin-top: 0; color: #2c3e50; border-left: 4px solid #007bff; padding-left: 10px; }
-        
-        .nav-menu { margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .nav-menu button { background: none; color: #555; border: 1px solid transparent; }
-        .nav-menu button.active-nav { color: #007bff; border-bottom: 2px solid #007bff; border-radius: 0; }
+        /* Arama Sabitleme */
+        .search-sticky { position: sticky; top: 0; background: white; padding: 15px 0; z-index: 100; border-bottom: 2px solid #eee; }
+        .status-info { font-size: 13px; color: #666; margin-top: 5px; font-weight: bold; }
+
+        /* Tablo */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; font-size: 14px; word-wrap: break-word; }
+        th { background: #f8f9fa; position: sticky; top: 85px; z-index: 90; }
+        tr:nth-child(even) { background-color: #fcfcfc; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="authSection">
-        <h2 style="text-align:center;">📚 Kütüphane Girişi</h2>
+        <h2 style="text-align:center;">📚 Kütüphane Erişimi</h2>
         <input type="email" id="email" placeholder="E-posta">
         <input type="password" id="password" placeholder="Şifre">
         <button onclick="login()" style="width:100%; margin-top:10px;">Giriş Yap</button>
     </div>
 
     <div id="menuSection" class="view">
-        <div class="nav-menu">
-            <button onclick="showView('libraryView')" id="nav-lib">📖 Kitap Listesi</button>
-            <button onclick="window.location.href='dashboard.html'">📊 İstatistikler</button>
-            <button onclick="logout()" class="btn-danger" style="float:right;">Çıkış Yap</button>
+        <div style="margin-bottom: 20px; display: flex; justify-content: space-between;">
+            <button onclick="window.location.href='dashboard.html'" style="background: #6c757d;">📊 İstatistikler</button>
+            <button onclick="logout()" style="background: #dc3545;">Güvenli Çıkış</button>
         </div>
 
         <div id="adminPanel" style="display:none;">
-            <div class="admin-section">
-                <h3>➕ Yeni Kitap Ekle</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <input type="text" id="m_isbn" placeholder="ISBN Numarası">
-                    <input type="text" id="m_title" placeholder="Kitap Adı">
-                    <input type="text" id="m_author" placeholder="Yazar">
-                    <input type="text" id="m_publisher" placeholder="Yayın Evi">
-                    <input type="text" id="m_reader" placeholder="Okuyan (Örn: Uğur / Meltem)">
-                </div>
-                <button onclick="saveManualBook()" class="btn-success" style="width:100%; margin-top:15px;">Veritabanına Kaydet</button>
+            <h3 style="margin-top:0;">➕ Tekil Kitap Ekle</h3>
+            <div class="admin-grid">
+                <input type="text" id="m_isbn" placeholder="ISBN Numarası">
+                <input type="text" id="m_title" placeholder="Kitap Adı">
+                <input type="text" id="m_author" placeholder="Yazar">
+                <input type="text" id="m_publisher" placeholder="Yayın Evi">
+                <input type="text" id="m_reader" placeholder="Okuyan (Örn: Uğur / Meltem)">
             </div>
-
-            <div class="admin-section">
-                <h3>📥 Toplu Excel Yükle</h3>
-                <input type="file" id="excelFile" accept=".xlsx, .xls">
-                <button onclick="uploadExcel()">Yüklemeyi Başlat</button>
-            </div>
+            <button onclick="saveManualBook()" style="background: #28a745; width: 100%;">Veritabanına Kaydet</button>
+            <hr style="margin:20px 0; border:0; border-top:1px solid #ddd;">
+            <h3 style="margin-top:0;">📥 Toplu Excel Yükle</h3>
+            <input type="file" id="excelFile" accept=".xlsx, .xls">
+            <button onclick="uploadExcel()" style="width:100%;">Excel'i Sisteme Aktar</button>
         </div>
 
-        <div id="libraryView" class="view active">
-            <input type="text" id="searchInput" placeholder="Kitap, Yazar veya ISBN Ara..." onkeyup="searchBooks()">
-            <table id="bookTable">
-                <thead>
-                    <tr>
-                        <th>ISBN</th>
-                        <th>Kitap Adı</th>
-                        <th>Yazar</th>
-                        <th>Yayın Evi</th>
-                        <th>Okuyan</th>
-                    </tr>
-                </thead>
-                <tbody id="bookList"></tbody>
-            </table>
+        <div class="search-sticky">
+            <input type="text" id="searchInput" placeholder="Hızlı Ara (ISBN veya Kitap Adı)..." oninput="debounceSearch()">
+            <div id="status" class="status-info">Veriler hazırlanıyor...</div>
         </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 20%;">ISBN</th>
+                    <th style="width: 35%;">Kitap Adı</th>
+                    <th style="width: 20%;">Yazar</th>
+                    <th style="width: 15%;">Yayınevi</th>
+                    <th style="width: 10%;">Okuyan</th>
+                </tr>
+            </thead>
+            <tbody id="bookList"></tbody>
+        </table>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, query, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    // --- Firebase Yapılandırması ---
     const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
         authDomain: "onlinekutuphanem.firebaseapp.com",
@@ -112,9 +102,9 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    let allBooks = [];
+    let allData = []; 
+    let searchTimer;
 
-    // --- Giriş / Çıkış İşlemleri ---
     window.login = () => {
         const e = document.getElementById('email').value;
         const p = document.getElementById('password').value;
@@ -126,91 +116,94 @@
     onAuthStateChanged(auth, (user) => {
         if (user) {
             document.getElementById('authSection').style.display = 'none';
-            document.getElementById('menuSection').style.display = 'block';
+            document.getElementById('menuSection').classList.add('active');
             if(user.email === "admin@unallar.com.tr") {
                 document.getElementById('adminPanel').style.display = 'block';
             }
-            loadBooks();
+            fetchData();
         } else {
             document.getElementById('authSection').style.display = 'block';
-            document.getElementById('menuSection').style.display = 'none';
-            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('menuSection').classList.remove('active');
         }
     });
 
-    // --- Tekil Kitap Ekleme (ISBN KONTROLLÜ) ---
-    window.saveManualBook = async () => {
-        const isbn = document.getElementById('m_isbn').value.trim();
-        const title = document.getElementById('m_title').value.trim();
-        const author = document.getElementById('m_author').value.trim();
-        const publisher = document.getElementById('m_publisher').value.trim();
-        const reader = document.getElementById('m_reader').value.trim();
-
-        if(!isbn || !title) return alert("ISBN ve Kitap Adı zorunludur!");
-
+    // Verileri Hafızaya Çekme (Donmayı önleyen ana fonksiyon)
+    async function fetchData() {
+        const status = document.getElementById('status');
         try {
-            // ISBN Kontrolü
-            const q = query(collection(db, "books"), where("isbn", "==", isbn));
-            const checkSnap = await getDocs(q);
+            const snap = await getDocs(collection(db, "books"));
+            allData = snap.docs.map(doc => doc.data());
+            status.innerText = "✅ " + allData.length + " kitap yüklendi. Aramaya başlayabilirsiniz.";
+        } catch (err) {
+            status.innerText = "❌ Veri yükleme hatası!";
+        }
+    }
 
-            if(!checkSnap.empty) {
-                alert("⚠️ DİKKAT: Bu ISBN (" + isbn + ") zaten sistemde kayıtlı!");
+    // Gecikmeli Arama (Debounce)
+    window.debounceSearch = () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            const term = document.getElementById('searchInput').value.toLocaleLowerCase('tr-TR');
+            if(term.length < 2) {
+                document.getElementById('bookList').innerHTML = ""; 
                 return;
             }
+            
+            const filtered = allData.filter(b => 
+                (b.title || "").toLocaleLowerCase('tr-TR').includes(term) || 
+                (b.isbn || "").includes(term)
+            ).slice(0, 50); // Tarayıcıyı kasmamak için sadece ilk 50 sonuç
 
-            // Kaydet
-            await addDoc(collection(db, "books"), {
-                isbn, title, author, publisher, reader, 
-                createdAt: new Date()
-            });
-
-            alert("✅ Kitap başarıyla eklendi.");
-            location.reload(); 
-        } catch (err) {
-            alert("Hata oluştu: " + err.message);
-        }
+            renderTable(filtered);
+        }, 300);
     };
 
-    // --- Kitapları Listeleme ---
-    async function loadBooks() {
-        const snap = await getDocs(query(collection(db, "books"), orderBy("title")));
-        allBooks = [];
-        const list = document.getElementById('bookList');
-        list.innerHTML = "";
-        
-        snap.forEach(doc => {
-            const b = doc.data();
-            allBooks.push(b);
-            list.innerHTML += `<tr>
+    function renderTable(data) {
+        const tbody = document.getElementById('bookList');
+        tbody.innerHTML = data.map(b => `
+            <tr>
                 <td>${b.isbn || '-'}</td>
                 <td><b>${b.title}</b></td>
                 <td>${b.author || '-'}</td>
                 <td>${b.publisher || '-'}</td>
                 <td>${b.reader || '-'}</td>
-            </tr>`;
-        });
+            </tr>
+        `).join('');
     }
 
-    // --- Arama Fonksiyonu ---
-    window.searchBooks = () => {
-        const term = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = allBooks.filter(b => 
-            b.title.toLowerCase().includes(term) || 
-            b.author.toLowerCase().includes(term) || 
-            (b.isbn && b.isbn.includes(term))
-        );
+    // ISBN KONTROLLÜ EKLEME
+    window.saveManualBook = async () => {
+        const isbn = document.getElementById('m_isbn').value.trim();
+        const title = document.getElementById('m_title').value.trim();
         
-        const list = document.getElementById('bookList');
-        list.innerHTML = filtered.map(b => `<tr>
-            <td>${b.isbn || '-'}</td>
-            <td><b>${b.title}</b></td>
-            <td>${b.author || '-'}</td>
-            <td>${b.publisher || '-'}</td>
-            <td>${b.reader || '-'}</td>
-        </tr>`).join('');
+        if(!isbn || !title) return alert("Hata: ISBN ve Kitap Adı boş bırakılamaz!");
+
+        try {
+            // Veritabanında ISBN ara
+            const q = query(collection(db, "books"), where("isbn", "==", isbn));
+            const check = await getDocs(q);
+            
+            if(!check.empty) {
+                alert("⚠️ UYARI: Bu ISBN (" + isbn + ") zaten sistemde mevcut!");
+                return;
+            }
+
+            await addDoc(collection(db, "books"), {
+                isbn, title,
+                author: document.getElementById('m_author').value,
+                publisher: document.getElementById('m_publisher').value,
+                reader: document.getElementById('m_reader').value,
+                timestamp: new Date()
+            });
+
+            alert("✅ Kitap başarıyla kaydedildi.");
+            fetchData(); // Hafızayı tazele
+        } catch (err) {
+            alert("Hata: " + err.message);
+        }
     };
 
-    // --- Excel Yükleme ---
+    // Excel Yükleme
     window.uploadExcel = () => {
         const file = document.getElementById('excelFile').files[0];
         if(!file) return alert("Dosya seçiniz!");
@@ -219,7 +212,6 @@
             const data = new Uint8Array(e.target.result);
             const wb = XLSX.read(data, {type: 'array'});
             const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1});
-            
             for(let i = 1; i < json.length; i++) {
                 const r = json[i];
                 if(r[1]) {
@@ -232,17 +224,11 @@
                     });
                 }
             }
-            alert("Toplu yükleme tamamlandı!");
-            loadBooks();
+            alert("Toplu yükleme bitti!");
+            fetchData();
         };
         reader.readAsArrayBuffer(file);
     };
-
-    window.showView = (id) => {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-    };
-
 </script>
 </body>
 </html>

@@ -2,27 +2,29 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Analiz Paneli</title>
+    <title>Kütüphane Analiz Paneli</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
         .container { max-width: 1200px; margin: auto; }
         .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .full-width { grid-column: span 2; }
+        .summary-box { background: #007bff; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-size: 20px; font-weight: bold; }
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .clickable { cursor: pointer; color: #007bff; font-weight: 500; text-decoration: none; }
-        .clickable:hover { text-decoration: underline; color: #0056b3; }
+        .clickable { cursor: pointer; color: #007bff; font-weight: 500; }
+        .clickable:hover { text-decoration: underline; }
         .count-badge { background: #e7f1ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
-        .extra-info { font-size: 12px; color: #666; margin-left: 5px; }
-        .btn-add { background: #28a745; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; color: #333; }
+        .btn-add { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
+    
+    <div id="totalSummary" class="summary-box">Yükleniyor...</div>
 
     <div class="grid-layout">
         <div class="card full-width">
@@ -60,13 +62,18 @@
 
     async function loadStats() {
         const snap = await getDocs(collection(db, "books"));
-        const extraSnap = await getDoc(doc(db, "settings", "extra_counts"));
+        
+        // Ödünç sayılarını "extra_counts" dokümanından çek
+        const extraRef = doc(db, "settings", "extra_counts");
+        const extraSnap = await getDoc(extraRef);
         const extraData = extraSnap.exists() ? extraSnap.data() : {};
 
         let readers = {}, authors = {}, pubs = {};
+        let totalRegistered = 0;
 
         snap.forEach(d => {
             const b = d.data();
+            totalRegistered++;
             if(b.publisher) pubs[b.publisher] = (pubs[b.publisher] || 0) + 1;
             if(b.author) authors[b.author] = (authors[b.author] || 0) + 1;
             if(b.reader) {
@@ -77,29 +84,33 @@
             }
         });
 
+        // Toplam Ödünç Hesapla
+        let totalExtra = Object.values(extraData).reduce((a, b) => a + b, 0);
+        document.getElementById('totalSummary').innerText = `Genel Toplam: ${totalRegistered + totalExtra} Kitap (${totalRegistered} Kayıtlı + ${totalExtra} Ödünç)`;
+
         renderReaders(readers, extraData);
-        renderList('authorList', authors);
-        renderList('pubList', pubs);
+        renderSimpleList('authorList', authors);
+        renderSimpleList('pubList', pubs);
     }
 
-    // İsme Tıklayınca Arama Yapan Fonksiyon
     window.goToSearch = (name) => {
+        // Parametreyi güvenli şekilde gönder
         window.location.href = `index.html?search=${encodeURIComponent(name)}`;
     };
 
-    function renderList(divId, data) {
-        const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
+    function renderSimpleList(divId, data) {
+        const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 50);
         document.getElementById(divId).innerHTML = sorted.map(item => `
             <div class="list-item">
-                <span class="clickable" onclick="goToSearch('${item[0]}')">${item[0]}</span>
+                <span class="clickable" onclick="goToSearch('${item[0].replace(/'/g, "\\'")}')">${item[0]}</span>
                 <span class="count-badge">${item[1]}</span>
             </div>`).join('');
     }
 
     function renderReaders(readers, extraData) {
         const sorted = Object.entries(readers).sort((a, b) => {
-            const tA = a[1] + (extraData[a[0]] || 0);
-            const tB = b[1] + (extraData[b[0]] || 0);
+            const tA = (a[1] || 0) + (extraData[a[0]] || 0);
+            const tB = (b[1] || 0) + (extraData[b[0]] || 0);
             return tB - tA;
         });
 
@@ -108,25 +119,28 @@
             return `
             <div class="list-item">
                 <div>
-                    <span class="clickable" onclick="goToSearch('${name}')">${name}</span>
-                    <span class="extra-info">(${total} toplam: ${reg} kayıtlı + ${extra} ödünç)</span>
+                    <span class="clickable" onclick="goToSearch('${name.replace(/'/g, "\\'")}')">${name}</span>
+                    <span style="font-size:12px; color:#666; margin-left:10px;">(${reg} kayıtlı + ${extra} ödünç)</span>
                 </div>
                 <div>
                     <span class="count-badge">${total}</span>
-                    <button class="btn-add" onclick="addExtraCount('${name}')">+ Sayı Ekle</button>
+                    <button class="btn-add" onclick="updateExtra('${name}', ${extra})">Sayı Ekle</button>
                 </div>
             </div>`;
         }).join('');
     }
 
-    window.addExtraCount = async (name) => {
-        const val = prompt(`${name} için eklenecek ödünç kitap sayısı:`, "0");
+    window.updateExtra = async (name, currentExtra) => {
+        const val = prompt(`${name} için YENİ ödünç kitap sayısını girin (Mevcut: ${currentExtra}):`, currentExtra);
         if (val !== null && !isNaN(val)) {
-            const extraSnap = await getDoc(doc(db, "settings", "extra_counts"));
-            let current = extraSnap.exists() ? extraSnap.data() : {};
-            current[name] = (current[name] || 0) + parseInt(val);
-            await setDoc(doc(db, "settings", "extra_counts"), current);
-            alert("Eklendi!");
+            const extraRef = doc(db, "settings", "extra_counts");
+            const extraSnap = await getDoc(extraRef);
+            let currentData = extraSnap.exists() ? extraSnap.data() : {};
+            
+            currentData[name] = parseInt(val);
+            
+            await setDoc(extraRef, currentData);
+            alert("Sayı güncellendi!");
             loadStats();
         }
     };

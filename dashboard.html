@@ -10,13 +10,13 @@
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .full-width { grid-column: span 2; }
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .clickable { cursor: pointer; color: #007bff; font-weight: 500; }
-        .clickable:hover { text-decoration: underline; }
+        .clickable { cursor: pointer; color: #007bff; font-weight: 500; text-decoration: none; }
+        .clickable:hover { text-decoration: underline; color: #0056b3; }
         .count-badge { background: #e7f1ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
         .extra-info { font-size: 12px; color: #666; margin-left: 5px; }
-        .btn-add { background: #28a745; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        .btn-add { background: #28a745; color: white; border: none; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; color: #333; }
     </style>
 </head>
 <body>
@@ -26,17 +26,17 @@
 
     <div class="grid-layout">
         <div class="card full-width">
-            <h2>👤 Okuyucu İstatistikleri (Toplam + Ödünç)</h2>
+            <h2>👤 Okuyucu İstatistikleri</h2>
             <div id="readerList">Yükleniyor...</div>
         </div>
 
         <div class="card">
-            <h2>✍️ Yazarlar (Sol)</h2>
+            <h2>✍️ Yazarlar</h2>
             <div id="authorList">Yükleniyor...</div>
         </div>
 
         <div class="card">
-            <h2>🏢 Yayın Evleri (Sağ)</h2>
+            <h2>🏢 Yayın Evleri</h2>
             <div id="pubList">Yükleniyor...</div>
         </div>
     </div>
@@ -63,32 +63,33 @@
         const extraSnap = await getDoc(doc(db, "settings", "extra_counts"));
         const extraData = extraSnap.exists() ? extraSnap.data() : {};
 
-        let readerCount = {}, authorCount = {}, pubCount = {};
+        let readers = {}, authors = {}, pubs = {};
 
         snap.forEach(d => {
             const b = d.data();
-            if(b.publisher) pubCount[b.publisher] = (pubCount[b.publisher] || 0) + 1;
-            if(b.author) authorCount[b.author] = (authorCount[b.author] || 0) + 1;
+            if(b.publisher) pubs[b.publisher] = (pubs[b.publisher] || 0) + 1;
+            if(b.author) authors[b.author] = (authors[b.author] || 0) + 1;
             if(b.reader) {
                 b.reader.split('/').forEach(r => {
-                    const name = r.trim();
-                    if(name) readerCount[name] = (readerCount[name] || 0) + 1;
+                    const clean = r.trim();
+                    if(clean) readers[clean] = (readers[clean] || 0) + 1;
                 });
             }
         });
 
-        renderReaders(readerCount, extraData);
-        renderSimpleList('authorList', authorCount);
-        renderSimpleList('pubList', pubCount);
+        renderReaders(readers, extraData);
+        renderList('authorList', authors);
+        renderList('pubList', pubs);
     }
 
-    window.goToSearch = (term) => {
-        window.location.href = `index.html?search=${encodeURIComponent(term)}`;
+    // İsme Tıklayınca Arama Yapan Fonksiyon
+    window.goToSearch = (name) => {
+        window.location.href = `index.html?search=${encodeURIComponent(name)}`;
     };
 
-    function renderSimpleList(elementId, data) {
+    function renderList(divId, data) {
         const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]);
-        document.getElementById(elementId).innerHTML = sorted.map(item => `
+        document.getElementById(divId).innerHTML = sorted.map(item => `
             <div class="list-item">
                 <span class="clickable" onclick="goToSearch('${item[0]}')">${item[0]}</span>
                 <span class="count-badge">${item[1]}</span>
@@ -97,9 +98,9 @@
 
     function renderReaders(readers, extraData) {
         const sorted = Object.entries(readers).sort((a, b) => {
-            const totalA = b[1] + (extraData[b[0]] || 0);
-            const totalB = a[1] + (extraData[a[0]] || 0);
-            return totalB - totalA;
+            const tA = a[1] + (extraData[a[0]] || 0);
+            const tB = b[1] + (extraData[b[0]] || 0);
+            return tB - tA;
         });
 
         document.getElementById('readerList').innerHTML = sorted.map(item => {
@@ -112,20 +113,20 @@
                 </div>
                 <div>
                     <span class="count-badge">${total}</span>
-                    <button class="btn-add" onclick="addExtra('${name}')">+ Sayı Ekle</button>
+                    <button class="btn-add" onclick="addExtraCount('${name}')">+ Sayı Ekle</button>
                 </div>
             </div>`;
         }).join('');
     }
 
-    window.addExtra = async (name) => {
-        const amount = prompt(`${name} için eklenecek ödünç kitap sayısı:`, "0");
-        if (amount !== null && !isNaN(amount)) {
+    window.addExtraCount = async (name) => {
+        const val = prompt(`${name} için eklenecek ödünç kitap sayısı:`, "0");
+        if (val !== null && !isNaN(val)) {
             const extraSnap = await getDoc(doc(db, "settings", "extra_counts"));
             let current = extraSnap.exists() ? extraSnap.data() : {};
-            current[name] = (current[name] || 0) + parseInt(amount);
+            current[name] = (current[name] || 0) + parseInt(val);
             await setDoc(doc(db, "settings", "extra_counts"), current);
-            alert("Başarıyla eklendi!");
+            alert("Eklendi!");
             loadStats();
         }
     };

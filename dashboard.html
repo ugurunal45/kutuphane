@@ -2,30 +2,46 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>İstatistik Paneli</title>
+    <title>Kütüphane Analiz Paneli</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; padding: 20px; }
         .container { max-width: 1200px; margin: auto; }
         .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
         .full-width { grid-column: span 2; }
-        .summary-box { background: #007bff; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-size: 20px; font-weight: bold; }
+        .summary-box { background: #007bff; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-size: 22px; font-weight: bold; }
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .clickable { cursor: pointer; color: #007bff; font-weight: 500; text-decoration: none; }
-        .count-badge { background: #e7f1ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
-        .btn-add { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .clickable { cursor: pointer; color: #007bff; font-weight: 500; transition: 0.2s; }
+        .clickable:hover { text-decoration: underline; color: #0056b3; }
+        .count-badge { background: #e7f1ff; color: #007bff; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+        .btn-add { background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
-        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; color: #333; }
+        .info-text { font-size: 13px; color: #666; margin-left: 10px; }
     </style>
 </head>
 <body>
+
 <div class="container">
     <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
-    <div id="totalSummary" class="summary-box">Giriş Kontrol Ediliyor...</div>
+    
+    <div id="totalSummary" class="summary-box">Oturum Kontrol Ediliyor...</div>
+
     <div class="grid-layout">
-        <div class="card full-width"><h2>👤 Okuyucular</h2><div id="readerList"></div></div>
-        <div class="card"><h2>✍️ Yazarlar</h2><div id="authorList"></div></div>
-        <div class="card"><h2>🏢 Yayınevleri</h2><div id="pubList"></div></div>
+        <div class="card full-width">
+            <h2>👤 Okuyucu Skorları (Kayıtlı + Ödünç)</h2>
+            <div id="readerList"></div>
+        </div>
+
+        <div class="card">
+            <h2>✍️ En Çok Okunan Yazarlar</h2>
+            <div id="authorList"></div>
+        </div>
+
+        <div class="card">
+            <h2>🏢 Yayın Evi Dağılımı</h2>
+            <div id="pubList"></div>
+        </div>
     </div>
 </div>
 
@@ -47,12 +63,12 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // OTURUM KONTROLÜ: Giriş yapılmamışsa ana sayfaya atar
+    // Güvenlik Kontrolü
     onAuthStateChanged(auth, (user) => {
         if (user && user.email === "admin@unallar.com.tr") {
             loadStats();
         } else {
-            alert("Lütfen önce admin girişi yapın!");
+            alert("Bu sayfaya erişim için admin girişi gereklidir.");
             window.location.href = 'index.html';
         }
     });
@@ -70,66 +86,106 @@
 
             let readers = {}, authors = {}, pubs = {}, totalReg = 0;
             snap.forEach(d => {
-                const b = d.data(); totalReg++;
+                const b = d.data();
+                totalReg++;
                 if(b.publisher) pubs[b.publisher] = (pubs[b.publisher] || 0) + 1;
                 if(b.author) authors[b.author] = (authors[b.author] || 0) + 1;
-                if(b.reader) { 
-                    b.reader.split('/').forEach(r => { 
-                        const c = r.trim(); 
-                        if(c) readers[c] = (readers[c] || 0) + 1; 
-                    }); 
+                if(b.reader) {
+                    b.reader.split('/').forEach(r => {
+                        const clean = r.trim();
+                        if(clean) readers[clean] = (readers[clean] || 0) + 1;
+                    });
                 }
             });
 
             let totalExtra = Object.values(extraData).reduce((a, b) => a + b, 0);
-            document.getElementById('totalSummary').innerText = `Genel Toplam: ${totalReg + totalExtra} (${totalReg} Kayıtlı + ${totalExtra} Ödünç)`;
+            document.getElementById('totalSummary').innerText = `Genel Toplam: ${totalReg + totalExtra} Kitap (${totalReg} Kayıtlı + ${totalExtra} Ödünç)`;
 
             renderReaders(readers, extraData);
             renderSimpleList('authorList', authors);
             renderSimpleList('pubList', pubs);
         } catch (err) {
-            console.error(err);
-            document.getElementById('totalSummary').innerText = "Veri yükleme hatası!";
+            console.error("Yükleme Hatası:", err);
+            document.getElementById('totalSummary').innerText = "Veriler yüklenirken bir hata oluştu.";
         }
     }
 
-    window.goToSearch = (n) => window.location.href = `index.html?search=${encodeURIComponent(n)}`;
+    window.goToSearch = (name) => {
+        window.location.href = `index.html?search=${encodeURIComponent(name)}`;
+    };
 
-    function renderSimpleList(id, data) {
-        const s = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 50);
-        document.getElementById(id).innerHTML = s.map(i => `<div class="list-item"><span class="clickable" onclick="goToSearch('${i[0].replace(/'/g, "\\'")}')">${i[0]}</span><span class="count-badge">${i[1]}</span></div>`).join('');
+    function renderSimpleList(divId, data) {
+        const sorted = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 50);
+        document.getElementById(divId).innerHTML = sorted.map(item => `
+            <div class="list-item">
+                <span class="clickable" onclick="goToSearch('${item[0].replace(/'/g, "\\'")}')">${item[0]}</span>
+                <span class="count-badge">${item[1]}</span>
+            </div>`).join('');
     }
 
-    function renderReaders(readers, extra) {
-        const s = Object.entries(readers).sort((a, b) => (b[1] + (extra[b[0]]||0)) - (a[1] + (extra[a[0]]||0)));
-        document.getElementById('readerList').innerHTML = s.map(i => {
-            const n = i[0], r = i[1], e = extra[n] || 0, t = r + e;
-            return `<div class="list-item"><div><span class="clickable" onclick="goToSearch('${n.replace(/'/g, "\\'")}')">${n}</span><span style="font-size:12px;color:#666;margin-left:10px;">(${r} kayıtlı + ${e} ödünç)</span></div><div><span class="count-badge">${t}</span><button class="btn-add" onclick="updateExtra('${n}')">Ödünç Ekle</button></div></div>`;
+    function renderReaders(readers, extraData) {
+        const sorted = Object.entries(readers).sort((a, b) => {
+            const totalA = (a[1] || 0) + (extraData[a[0]] || 0);
+            const totalB = (b[1] || 0) + (extraData[b[0]] || 0);
+            return totalB - totalA;
+        });
+
+        document.getElementById('readerList').innerHTML = sorted.map(item => {
+            const name = item[0];
+            const reg = item[1];
+            const extra = extraData[name] || 0;
+            const total = reg + extra;
+            return `
+            <div class="list-item">
+                <div>
+                    <span class="clickable" onclick="goToSearch('${name.replace(/'/g, "\\'")}')">${name}</span>
+                    <span class="info-text">(${reg} kayıtlı + ${extra} ödünç)</span>
+                </div>
+                <div>
+                    <span class="count-badge">${total}</span>
+                    <button class="btn-add" onclick="updateExtra('${name}')">+ Sayı Ekle</button>
+                </div>
+            </div>`;
         }).join('');
     }
 
     window.updateExtra = async (name) => {
-        const val = prompt(`${name} için yeni ödünç sayısını girin (Önceki kayıtlar silinecektir):`, "0");
-        if (val !== null && !isNaN(val) && val !== "") {
+        const val = prompt(`${name} için EKLENECEK kitap sayısını girin (Örn: 5):`, "0");
+        
+        if (val !== null && !isNaN(val) && val !== "" && parseInt(val) !== 0) {
             try {
-                // Mevcut eski kayıtları temizle
+                // 1. Mevcut ödünç kaydını sorgula
                 const q = query(collection(db, "odun"), where("okuyucu", "==", name));
                 const oldDocs = await getDocs(q);
-                const deletePromises = oldDocs.docs.map(d => deleteDoc(doc(db, "odun", d.id)));
+                
+                let currentExtraValue = 0;
+                let docsToDelete = [];
+
+                // 2. Varsa eski kayıtların toplamını al ve silmek üzere işaretle
+                oldDocs.forEach(d => {
+                    currentExtraValue += (d.data().sayi || 0);
+                    docsToDelete.push(d.id);
+                });
+
+                // 3. Yeni toplamı hesapla
+                const newTotal = currentExtraValue + parseInt(val);
+
+                // 4. Eski kayıtları temizle
+                const deletePromises = docsToDelete.map(id => deleteDoc(doc(db, "odun", id)));
                 await Promise.all(deletePromises);
 
-                // Yeni kaydı ekle
+                // 5. Yeni toplamı ekle
                 await addDoc(collection(db, "odun"), {
                     okuyucu: name,
-                    sayi: parseInt(val),
+                    sayi: newTotal,
                     tarih: new Date()
                 });
                 
-                alert("✅ İşlem Başarılı.");
+                alert(`✅ Başarılı! ${name} için ödünç sayısı ${currentExtraValue} iken ${newTotal} olarak güncellendi.`);
                 loadStats();
             } catch (error) {
                 console.error("Firebase Hatası:", error);
-                alert("❌ Hata: Yetkiniz olmayabilir veya oturumunuz kapanmış olabilir.");
+                alert("❌ Hata: Sayı kaydedilemedi. Oturumunuzu kontrol edin.");
             }
         }
     };

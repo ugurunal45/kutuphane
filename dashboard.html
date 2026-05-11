@@ -11,7 +11,7 @@
         .full-width { grid-column: span 2; }
         .summary-box { background: #007bff; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; font-size: 20px; font-weight: bold; }
         .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .clickable { cursor: pointer; color: #007bff; font-weight: 500; }
+        .clickable { cursor: pointer; color: #007bff; font-weight: 500; text-decoration: none; }
         .count-badge { background: #e7f1ff; color: #007bff; padding: 4px 12px; border-radius: 20px; font-weight: bold; }
         .btn-add { background: #28a745; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; }
         .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
@@ -21,7 +21,7 @@
 <body>
 <div class="container">
     <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
-    <div id="totalSummary" class="summary-box">Hesaplanıyor...</div>
+    <div id="totalSummary" class="summary-box">Veriler Hesaplanıyor...</div>
     <div class="grid-layout">
         <div class="card full-width"><h2>👤 Okuyucular</h2><div id="readerList"></div></div>
         <div class="card"><h2>✍️ Yazarlar</h2><div id="authorList"></div></div>
@@ -31,7 +31,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
@@ -48,15 +48,25 @@
     async function loadStats() {
         const snap = await getDocs(collection(db, "books"));
         const extraSnap = await getDocs(collection(db, "odun"));
+        
         let extraData = {};
-        extraSnap.forEach(d => { const data = d.data(); extraData[data.okuyucu] = data.sayi; });
+        extraSnap.forEach(d => {
+            const data = d.data();
+            // Aynı okuyucu için birden fazla ödünç varsa toplar
+            extraData[data.okuyucu] = (extraData[data.okuyucu] || 0) + data.sayi;
+        });
 
         let readers = {}, authors = {}, pubs = {}, totalReg = 0;
         snap.forEach(d => {
             const b = d.data(); totalReg++;
             if(b.publisher) pubs[b.publisher] = (pubs[b.publisher] || 0) + 1;
             if(b.author) authors[b.author] = (authors[b.author] || 0) + 1;
-            if(b.reader) { b.reader.split('/').forEach(r => { const c = r.trim(); if(c) readers[c] = (readers[c] || 0) + 1; }); }
+            if(b.reader) { 
+                b.reader.split('/').forEach(r => { 
+                    const c = r.trim(); 
+                    if(c) readers[c] = (readers[c] || 0) + 1; 
+                }); 
+            }
         });
 
         let totalExtra = Object.values(extraData).reduce((a, b) => a + b, 0);
@@ -78,18 +88,37 @@
         const s = Object.entries(readers).sort((a, b) => (b[1] + (extra[b[0]]||0)) - (a[1] + (extra[a[0]]||0)));
         document.getElementById('readerList').innerHTML = s.map(i => {
             const n = i[0], r = i[1], e = extra[n] || 0, t = r + e;
-            return `<div class="list-item"><div><span class="clickable" onclick="goToSearch('${n.replace(/'/g, "\\'")}')">${n}</span><span style="font-size:12px;color:#666;margin-left:10px;">(${r} kayıtlı + ${e} ödünç)</span></div><div><span class="count-badge">${t}</span><button class="btn-add" onclick="updateExtra('${n}', ${e})">Güncelle</button></div></div>`;
+            return `<div class="list-item"><div><span class="clickable" onclick="goToSearch('${n.replace(/'/g, "\\'")}')">${n}</span><span style="font-size:12px;color:#666;margin-left:10px;">(${r} kayıtlı + ${e} ödünç)</span></div><div><span class="count-badge">${t}</span><button class="btn-add" onclick="updateExtra('${n}')">Ödünç Ekle</button></div></div>`;
         }).join('');
     }
 
-    window.updateExtra = async (name, current) => {
-        const val = prompt(`${name} için ÖDÜNÇ kitap sayısı:`, current);
-        if (val !== null && !isNaN(val)) {
-            const docId = name.trim().replace(/\s+/g, '_');
-            await setDoc(doc(db, "odun", docId), { okuyucu: name, sayi: parseInt(val) }, { merge: true });
-            alert("Sayı güncellendi!"); loadStats();
+    window.updateExtra = async (name) => {
+        const val = prompt(`${name} için eklenecek ödünç kitap sayısını girin:`, "0");
+        if (val !== null && !isNaN(val) && val !== "") {
+            try {
+                // Önce bu okuyucunun 'odun' koleksiyonundaki eski kayıtlarını temizle (opsiyonel, üzerine eklemesin diye)
+                const q = query(collection(db, "odun"), where("okuyucu", "==", name));
+                const oldDocs = await getDocs(q);
+                for (const oldDoc of oldDocs.docs) {
+                    await deleteDoc(doc(db, "odun", oldDoc.id));
+                }
+
+                // Yeni kaydı ekle
+                await addDoc(collection(db, "odun"), {
+                    okuyucu: name,
+                    sayi: parseInt(val),
+                    tarih: new Date()
+                });
+                
+                alert("✅ Ödünç sayısı başarıyla kaydedildi.");
+                loadStats();
+            } catch (error) {
+                console.error("Hata:", error);
+                alert("❌ Hata oluştu! Lütfen admin girişi yaptığınızdan emin olun.");
+            }
         }
     };
+
     loadStats();
 </script>
 </body>

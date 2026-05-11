@@ -21,7 +21,7 @@
 <body>
 <div class="container">
     <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
-    <div id="totalSummary" class="summary-box">Veriler Hesaplanıyor...</div>
+    <div id="totalSummary" class="summary-box">Giriş Kontrol Ediliyor...</div>
     <div class="grid-layout">
         <div class="card full-width"><h2>👤 Okuyucular</h2><div id="readerList"></div></div>
         <div class="card"><h2>✍️ Yazarlar</h2><div id="authorList"></div></div>
@@ -32,6 +32,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
     import { getFirestore, collection, getDocs, addDoc, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
@@ -44,37 +45,52 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // OTURUM KONTROLÜ: Giriş yapılmamışsa ana sayfaya atar
+    onAuthStateChanged(auth, (user) => {
+        if (user && user.email === "admin@unallar.com.tr") {
+            loadStats();
+        } else {
+            alert("Lütfen önce admin girişi yapın!");
+            window.location.href = 'index.html';
+        }
+    });
 
     async function loadStats() {
-        const snap = await getDocs(collection(db, "books"));
-        const extraSnap = await getDocs(collection(db, "odun"));
-        
-        let extraData = {};
-        extraSnap.forEach(d => {
-            const data = d.data();
-            // Aynı okuyucu için birden fazla ödünç varsa toplar
-            extraData[data.okuyucu] = (extraData[data.okuyucu] || 0) + data.sayi;
-        });
+        try {
+            const snap = await getDocs(collection(db, "books"));
+            const extraSnap = await getDocs(collection(db, "odun"));
+            
+            let extraData = {};
+            extraSnap.forEach(d => {
+                const data = d.data();
+                extraData[data.okuyucu] = (extraData[data.okuyucu] || 0) + data.sayi;
+            });
 
-        let readers = {}, authors = {}, pubs = {}, totalReg = 0;
-        snap.forEach(d => {
-            const b = d.data(); totalReg++;
-            if(b.publisher) pubs[b.publisher] = (pubs[b.publisher] || 0) + 1;
-            if(b.author) authors[b.author] = (authors[b.author] || 0) + 1;
-            if(b.reader) { 
-                b.reader.split('/').forEach(r => { 
-                    const c = r.trim(); 
-                    if(c) readers[c] = (readers[c] || 0) + 1; 
-                }); 
-            }
-        });
+            let readers = {}, authors = {}, pubs = {}, totalReg = 0;
+            snap.forEach(d => {
+                const b = d.data(); totalReg++;
+                if(b.publisher) pubs[b.publisher] = (pubs[b.publisher] || 0) + 1;
+                if(b.author) authors[b.author] = (authors[b.author] || 0) + 1;
+                if(b.reader) { 
+                    b.reader.split('/').forEach(r => { 
+                        const c = r.trim(); 
+                        if(c) readers[c] = (readers[c] || 0) + 1; 
+                    }); 
+                }
+            });
 
-        let totalExtra = Object.values(extraData).reduce((a, b) => a + b, 0);
-        document.getElementById('totalSummary').innerText = `Genel Toplam: ${totalReg + totalExtra} (${totalReg} Kayıtlı + ${totalExtra} Ödünç)`;
+            let totalExtra = Object.values(extraData).reduce((a, b) => a + b, 0);
+            document.getElementById('totalSummary').innerText = `Genel Toplam: ${totalReg + totalExtra} (${totalReg} Kayıtlı + ${totalExtra} Ödünç)`;
 
-        renderReaders(readers, extraData);
-        renderSimpleList('authorList', authors);
-        renderSimpleList('pubList', pubs);
+            renderReaders(readers, extraData);
+            renderSimpleList('authorList', authors);
+            renderSimpleList('pubList', pubs);
+        } catch (err) {
+            console.error(err);
+            document.getElementById('totalSummary').innerText = "Veri yükleme hatası!";
+        }
     }
 
     window.goToSearch = (n) => window.location.href = `index.html?search=${encodeURIComponent(n)}`;
@@ -93,15 +109,14 @@
     }
 
     window.updateExtra = async (name) => {
-        const val = prompt(`${name} için eklenecek ödünç kitap sayısını girin:`, "0");
+        const val = prompt(`${name} için yeni ödünç sayısını girin (Önceki kayıtlar silinecektir):`, "0");
         if (val !== null && !isNaN(val) && val !== "") {
             try {
-                // Önce bu okuyucunun 'odun' koleksiyonundaki eski kayıtlarını temizle (opsiyonel, üzerine eklemesin diye)
+                // Mevcut eski kayıtları temizle
                 const q = query(collection(db, "odun"), where("okuyucu", "==", name));
                 const oldDocs = await getDocs(q);
-                for (const oldDoc of oldDocs.docs) {
-                    await deleteDoc(doc(db, "odun", oldDoc.id));
-                }
+                const deletePromises = oldDocs.docs.map(d => deleteDoc(doc(db, "odun", d.id)));
+                await Promise.all(deletePromises);
 
                 // Yeni kaydı ekle
                 await addDoc(collection(db, "odun"), {
@@ -110,16 +125,14 @@
                     tarih: new Date()
                 });
                 
-                alert("✅ Ödünç sayısı başarıyla kaydedildi.");
+                alert("✅ İşlem Başarılı.");
                 loadStats();
             } catch (error) {
-                console.error("Hata:", error);
-                alert("❌ Hata oluştu! Lütfen admin girişi yaptığınızdan emin olun.");
+                console.error("Firebase Hatası:", error);
+                alert("❌ Hata: Yetkiniz olmayabilir veya oturumunuz kapanmış olabilir.");
             }
         }
     };
-
-    loadStats();
 </script>
 </body>
 </html>

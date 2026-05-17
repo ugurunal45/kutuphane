@@ -65,8 +65,8 @@
 
     // Güvenlik Kontrolü
     onAuthStateChanged(auth, (user) => {
-        if (user && user.email === "admin@unallar.com.tr") {
-            loadStats();
+        if (user && user.email === "admin@unallar.com.tr" || user.email === "yeni_kullanici_maili@gmail.com")) {
+        loadStats();
         } else {
             alert("Bu sayfaya erişim için admin girişi gereklidir.");
             window.location.href = 'index.html';

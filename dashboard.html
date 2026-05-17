@@ -63,12 +63,14 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    // Güvenlik Kontrolü
+    // YENİ GİRİŞ KONTROLÜ
     onAuthStateChanged(auth, (user) => {
-        if (user && user.email === "admin@unallar.com.tr" || user.email === "mehmet.yavuz.unal@unallar..com.tr")) {
-        loadStats();
+        if (user) {
+            // Herhangi bir kullanıcı giriş yaptıysa istatistikleri yükle
+            loadStats();
         } else {
-            alert("Bu sayfaya erişim için admin girişi gereklidir.");
+            // Giriş yapılmadıysa ana sayfaya geri at
+            alert("Lütfen önce giriş yapın!");
             window.location.href = 'index.html';
         }
     });

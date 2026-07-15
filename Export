@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kütüphane Veri Dışa Aktarma</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+        .btn-back { background: #6c757d; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+        .btn-export { background: #28a745; color: white; padding: 15px 25px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; }
+        .btn-export:hover { background: #218838; }
+        .btn-secondary { background: #17a2b8; }
+        .btn-secondary:hover { background: #138496; }
+        .status-box { background: #e7f1ff; color: #007bff; padding: 15px; border-radius: 8px; margin-bottom: 25px; text-align: center; font-weight: 500; }
+        .info-card { border: 1px solid #e3e6f0; padding: 20px; border-radius: 8px; background: #f8f9fc; margin-bottom: 20px; }
+        h2 { color: #333; margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h3 { color: #4e73df; margin-top: 0; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .stat-item { background: white; padding: 15px; border-radius: 6px; border: 1px solid #eaecf4; text-align: center; }
+        .stat-val { font-size: 24px; font-weight: bold; color: #333; }
+        .stat-lbl { font-size: 12px; color: #858796; text-transform: uppercase; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <button class="btn-back" onclick="window.location.href='index.html'">← Kütüphaneye Dön</button>
+    
+    <h2>📊 Veri Dışa Aktarma Paneli (CSV)</h2>
+    
+    <div id="authStatus" class="status-box">Oturum kontrol ediliyor...</div>
+
+    <div class="info-card">
+        <h3>📋 Mevcut Veritabanı Durumu</h3>
+        <p>Aşağıda kütüphane sisteminizde kayıtlı olan güncel veri sayıları listelenmiştir. İlgili butonları kullanarak verilerinizi Excel uyumlu <b>CSV</b> formatında indirebilirsiniz.</p>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div id="countBooks" class="stat-val">-</div>
+                <div class="stat-lbl">Kayıtlı Kitap Sayısı</div>
+            </div>
+            <div class="stat-item">
+                <div id="countLoans" class="stat-val">-</div>
+                <div class="stat-lbl">Ekstra Ödünç Kaydı</div>
+            </div>
+        </div>
+    </div>
+
+    <button id="btnExportBooks" class="btn-export" onclick="exportBooksCSV()" disabled>
+        📥 Kitap Listesini İndir (books.csv)
+    </button>
+    
+    <button id="btnExportLoans" class="btn-export btn-secondary" onclick="exportLoansCSV()" disabled>
+        📥 Ödünç Verilerini İndir (odunc_verileri.csv)
+    </button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCbza5NtXIeBv2oPtcAveVPJoNm6xSU25s",
+        authDomain: "onlinekutuphanem.firebaseapp.com",
+        projectId: "onlinekutuphanem",
+        storageBucket: "onlinekutuphanem.firebasestorage.app",
+        messagingSenderId: "772703511419",
+        appId: "1:772703511419:web:322073bf09ef86a32193de"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let allBooks = [];
+    let allLoans = [];
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            document.getElementById('authStatus').innerHTML = "✅ Oturum Açık: <b>" + user.email + "</b>";
+            loadData();
+        } else {
+            alert("Lütfen önce giriş yapın!");
+            window.location.href = 'index.html';
+        }
+    });
+
+    async function loadData() {
+        try {
+            // Kitapları Çek
+            const bookSnap = await getDocs(collection(db, "books"));
+            allBooks = [];
+            bookSnap.forEach(doc => {
+                allBooks.push({ id: doc.id, ...doc.data() });
+            });
+            document.getElementById('countBooks').innerText = allBooks.length;
+
+            // Ödünçleri Çek
+            const loanSnap = await getDocs(collection(db, "odun"));
+            allLoans = [];
+            loanSnap.forEach(doc => {
+                allLoans.push({ id: doc.id, ...doc.data() });
+            });
+            document.getElementById('countLoans').innerText = allLoans.length;
+
+            // Butonları aktif et
+            document.getElementById('btnExportBooks').disabled = false;
+            document.getElementById('btnExportLoans').disabled = false;
+
+        } catch (err) {
+            console.error("Veri yükleme hatası:", err);
+            document.getElementById('authStatus').innerText = "❌ Veriler yüklenirken bir hata oluştu.";
+        }
+    }
+
+    // Kitapları CSV olarak dışa aktar
+    window.exportBooksCSV = () => {
+        if (allBooks.length === 0) return alert("İndirilecek kitap verisi bulunamadı!");
+
+        // CSV Başlıkları
+        const headers = ["ID", "ISBN", "Kitap Adi", "Yazar", "Yayinevi", "Okuyan Kisi"];
+        
+        // Verileri satırlara dönüştür (virgülle ayrılmış değerlerin düzgün kalması için çift tırnağa alıyoruz)
+        const rows = allBooks.map(b => [
+            b.id || "",
+            b.isbn || "",
+            b.title || "",
+            b.author || "",
+            b.publisher || "",
+            b.reader || ""
+        ]);
+
+        downloadCSV("kitaplar_listesi.csv", headers, rows);
+    };
+
+    // Ödünç Verilerini CSV olarak dışa aktar
+    window.exportLoansCSV = () => {
+        if (allLoans.length === 0) return alert("İndirilecek ödünç verisi bulunamadı!");
+
+        // CSV Başlıkları
+        const headers = ["ID", "Okuyucu Adi", "Sayi", "Tarih"];
+        
+        // Verileri satırlara dönüştür
+        const rows = allLoans.map(l => {
+            let tarihStr = "";
+            if (l.tarih) {
+                // Firebase timestamp veya JS Date objesini okunabilir formata çevir
+                const t = l.tarih.seconds ? new Date(l.tarih.seconds * 1000) : new Date(l.tarih);
+                tarihStr = t.toLocaleString('tr-TR');
+            }
+            return [
+                l.id || "",
+                l.okuyucu || "",
+                l.sayi || 0,
+                tarihStr
+            ];
+        });
+
+        downloadCSV("odunc_listesi.csv", headers, rows);
+    };
+
+    // Genel CSV İndirme Yardımcı Fonksiyonu
+    function downloadCSV(filename, headers, rows) {
+        // CSV içeriğini oluştur (Excel uyumu için noktalı virgül ';' ayırıcı kullanıyoruz)
+        let csvContent = headers.join(";") + "\n";
+        
+        rows.forEach(row => {
+            const cleanedRow = row.map(val => {
+                // Değeri string yap ve içindeki çift tırnakları ikiye katla (CSV standardı)
+                let strVal = String(val).replace(/"/g, '""');
+                // Eğer içinde noktalı virgül, tırnak veya yeni satır varsa çift tırnak içine al
+                if (strVal.includes(";") || strVal.includes('"') || strVal.includes("\n")) {
+                    strVal = `"${strVal}"`;
+                }
+                return strVal;
+            });
+            csvContent += cleanedRow.join(";") + "\n";
+        });
+
+        // Türkçe karakterlerin Excel'de düzgün görünmesi için UTF-8 BOM ekliyoruz (\uFEFF)
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+</body>
+</html>

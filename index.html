@@ -18,6 +18,12 @@
         th { background: #f8f9fa; position: sticky; top: 85px; z-index: 90; }
         .btn-edit { background: #ffc107; color: black; padding: 5px 10px; font-size: 12px; border-radius: 4px; border:none; cursor:pointer; }
         .btn-success { background: #28a745; width: 100%; }
+        
+        /* Düzenleme Modalı için Basit CSS */
+        .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 10% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; }
+        .btn-cancel { background: #6c757d; }
     </style>
 </head>
 <body>
@@ -70,6 +76,32 @@
             </thead>
             <tbody id="bookList"></tbody>
         </table>
+    </div>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3 style="margin-top: 0;">📖 Kitap Bilgilerini Düzenle</h3>
+        <input type="hidden" id="edit_id">
+        <label style="font-size: 12px; font-weight: bold;">ISBN:</label>
+        <input type="text" id="edit_isbn">
+        
+        <label style="font-size: 12px; font-weight: bold;">Kitap Adı:</label>
+        <input type="text" id="edit_title">
+        
+        <label style="font-size: 12px; font-weight: bold;">Yazar:</label>
+        <input type="text" id="edit_author">
+        
+        <label style="font-size: 12px; font-weight: bold;">Yayınevi:</label>
+        <input type="text" id="edit_publisher">
+        
+        <label style="font-size: 12px; font-weight: bold;">Okuyan Kişi:</label>
+        <input type="text" id="edit_reader">
+        
+        <div class="modal-buttons">
+            <button onclick="closeEditModal()" class="btn-cancel">İptal</button>
+            <button onclick="saveBookEdit()" class="btn-success" style="width: auto;">Değişiklikleri Kaydet</button>
+        </div>
     </div>
 </div>
 
@@ -153,17 +185,64 @@
                     <td>${b.author || ''}</td>
                     <td>${b.publisher || ''}</td>
                     <td>${b.reader || ''}</td>
-                    <td><button class="btn-edit" onclick="editBookReader('${b.id}', '${b.reader || ''}')">Düzenle</button></td>
+                    <td><button class="btn-edit" onclick="openEditModal('${b.id}')">Düzenle</button></td>
                 </tr>`).join('');
         }, 300);
     };
 
-    window.editBookReader = async (id, current) => {
-        const newVal = prompt("Okuyan kişiyi güncelleyin:", current);
-        if(newVal !== null) {
-            await updateDoc(doc(db, "books", id), { reader: newVal });
-            alert("Güncellendi!");
+    // Düzenleme penceresini açar ve mevcut verileri form alanlarına doldurur
+    window.openEditModal = (id) => {
+        const book = allBooks.find(b => b.id === id);
+        if (book) {
+            document.getElementById('edit_id').value = book.id;
+            document.getElementById('edit_isbn').value = book.isbn || '';
+            document.getElementById('edit_title').value = book.title || '';
+            document.getElementById('edit_author').value = book.author || '';
+            document.getElementById('edit_publisher').value = book.publisher || '';
+            document.getElementById('edit_reader').value = book.reader || '';
+            document.getElementById('editModal').style.display = 'block';
+        }
+    };
+
+    // Düzenleme penceresini kapatır
+    window.closeEditModal = () => {
+        document.getElementById('editModal').style.display = 'none';
+    };
+
+    // Değişiklikleri Firebase'e kaydeder
+    window.saveBookEdit = async () => {
+        const id = document.getElementById('edit_id').value;
+        const isbn = document.getElementById('edit_isbn').value.trim();
+        const title = document.getElementById('edit_title').value.trim();
+        const author = document.getElementById('edit_author').value.trim();
+        const publisher = document.getElementById('edit_publisher').value.trim();
+        const reader = document.getElementById('edit_reader').value.trim();
+
+        if(!title) return alert("Kitap adı boş bırakılamaz!");
+
+        try {
+            // ISBN değiştiyse ve yeni girilen ISBN zaten başka bir kitapta kayıtlıysa kontrol et
+            if(isbn) {
+                const existingBook = allBooks.find(b => b.isbn === isbn && b.id !== id);
+                if(existingBook) {
+                    return alert("Bu ISBN numarası zaten başka bir kitaba kayıtlı!");
+                }
+            }
+
+            await updateDoc(doc(db, "books", id), {
+                isbn: isbn,
+                title: title,
+                author: author,
+                publisher: publisher,
+                reader: reader
+            });
+
+            alert("Kitap başarıyla güncellendi!");
+            closeEditModal();
             location.reload();
+        } catch (error) {
+            console.error("Güncelleme hatası:", error);
+            alert("Bir hata oluştu güncellenemedi.");
         }
     };
 
